@@ -128,7 +128,6 @@ program Goes_ReBroadcast_converter
       write(uop,*) 'Error reading namelist data_nml'
       stop
    end if
-   stop 'nail 1'
    write(6,*)
    
    ! get file names from nc_list_file
@@ -155,6 +154,7 @@ program Goes_ReBroadcast_converter
          rewind(iunit)
          do ifile = 1, nfile
             read(unit=iunit, fmt='(a)', iostat=istat) nc_fnames(ifile)
+            write(6, 
          end do
       else
          write(uop,*) 'File not found from nc_list_file '//trim(nc_list_file)
@@ -162,7 +162,9 @@ program Goes_ReBroadcast_converter
       end if
       close(iunit)
    end if !nc_list_file
+   stop 'nail 1'
 
+   
    allocate (ftime_id(nfile))
    allocate (scan_time(nfile))
    allocate (julianday(nfile))
