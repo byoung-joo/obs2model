@@ -73,7 +73,7 @@ program Goes_ReBroadcast_converter
 
    integer(i_kind)      :: nml_unit = 81
    integer(i_kind)      :: iunit    = 87
-   integer :: uop = 7 
+   integer :: uop = 7   ! output unit
    
    character(len=256)              :: nc_list_file  ! the text file that contains a list of netcdf files to process
    character(len=256)              :: data_dir
@@ -120,14 +120,15 @@ program Goes_ReBroadcast_converter
    !
    ! read namelist
    !
-   open(unit=nml_unit, file='namelist.goes_abi_converter', status='old', form='formatted')
+   !open(unit=nml_unit, file='namelist.goes_abi_converter', status='unknown')
+   open(unit=nml_unit, file='nml', status='unknown')
    read(unit=nml_unit, nml=data_nml, iostat=istat)
    write(6,nml=data_nml)
-   if ( istat /= 0 ) then
+   if ( istat .NE. 0 ) then
       write(uop,*) 'Error reading namelist data_nml'
       stop
    end if
-   
+   stop 'nail 1'
    write(6,*)
    
    ! get file names from nc_list_file
