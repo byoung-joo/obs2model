@@ -5,3 +5,7 @@ CMakeLists.txt_2022-10-13_success
 crontab*.txt
 graphics*
 out.*
+test_abi_read/*.x
+test_abi_read/d.*
+
+

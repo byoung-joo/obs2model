@@ -1,0 +1,4 @@
+cmake dir is copied from jedicmake/*
+cmake.MPAS comes from mpas-jedi/MPAS-Develop/cmake, which contains GPTL
+
+
