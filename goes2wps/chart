@@ -1,0 +1,17 @@
+GOES Rebroadcast (GRB)
+
+
+s1. module  read_goes
+ contains
+ - subroutines
+
+ - input:
+   - nf=2
+   - fname(1:nf)
+ - output:
+   - nx, ny
+   - lon / lat(nx, ny)    lambda_theta
+   - bt / cm (nx,ny)
+
+s2. module interp
+  - input :

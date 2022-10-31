@@ -1,3 +1,11 @@
+!----------------------------------------------------------------------
+! Starting code from Jamie Bresch:
+!    https://github.com/jamiebresch/obs2ioda/blob/main/goes_abi/src/goes_abi_converter.f90
+!
+! Yonggang G. Yu
+! 27-Oct-2022
+!----------------------------------------------------------------------
+!
 program Goes_ReBroadcast_converter
 !
 ! Purpose: Convert GOES ReBroadcast netCDF files to ioda-v1 format.
@@ -116,7 +124,8 @@ program Goes_ReBroadcast_converter
    data_id        = 'OR_ABI-L1b-RadC-M3'
    sat_id         = 'G16'
    n_subsample    = 1
-   write_iodav1   = .true.
+   write_iodav1   = .false.
+   !write_iodav1   = .true.
    !
    ! read namelist
    !
@@ -154,7 +163,7 @@ program Goes_ReBroadcast_converter
          rewind(iunit)
          do ifile = 1, nfile
             read(unit=iunit, fmt='(a)', iostat=istat) nc_fnames(ifile)
-            write(6, 
+            write(6, 101) trim(nc_fnames(ifile))
          end do
       else
          write(uop,*) 'File not found from nc_list_file '//trim(nc_list_file)
@@ -162,7 +171,6 @@ program Goes_ReBroadcast_converter
       end if
       close(iunit)
    end if !nc_list_file
-   stop 'nail 1'
 
    
    allocate (ftime_id(nfile))
@@ -183,15 +191,19 @@ program Goes_ReBroadcast_converter
 
       fname = trim(data_dir)//'/'//trim(nc_fnames(ifile))
       inquire(file=trim(fname), exist=isfile)
+      write(6, 101) 'fname= '//trim(fname)
       if ( .not. isfile ) then
          write(uop,*) 'File not found: '//trim(fname)
          cycle file_loop1
+      else
+         write(6,*) 'File found: '//trim(fname)         
       end if
 
-      ! OR_ABI-L1b-RadC-M3C16_G16_s20172741802196_e20172741804580_c20172741805015.nc
       ! retrieve some basic info from the netcdf filename itself
       call decode_nc_fname(trim(nc_fnames(ifile)),finfo, scan_mode, is_BCM(ifile), &
          fband_id(ifile), fsat_id, scan_time(ifile), julianday(ifile))
+
+
 
       ! all files must be the same mode
       if ( scan_mode /= mode_id ) then
@@ -238,9 +250,10 @@ program Goes_ReBroadcast_converter
       end if
 
       ntime = t_index
-
+      
    end do file_loop1
 
+   write(6,121) 'ntime = ', ntime
    if ( ntime <= 0 ) then
       write(uop,*) 'ntime = ', ntime
       write(uop,*) 'No valid files found from nc_list_file '//trim(nc_list_file)
@@ -256,6 +269,9 @@ program Goes_ReBroadcast_converter
       if ( valid(ifile) ) then
 
          fname = trim(data_dir)//'/'//trim(nc_fnames(ifile))
+         !!call check(nf90_open(fname, NF90_NOWRITE, fh))
+
+         write(6, 101)  'ck 1'
          nf_status = nf_OPEN(trim(fname), nf_NOWRITE, ncid)
          if ( nf_status == 0 ) then
             write(uop,*) 'Reading '//trim(fname)
@@ -264,6 +280,8 @@ program Goes_ReBroadcast_converter
             cycle file_loop2
          end if
 
+         write(6, 101)  'ck 2'
+         
          if ( .not. got_grid_info ) then
             call read_GRB_dims(ncid, nx, ny)
             allocate (glat(nx, ny))
@@ -285,8 +303,12 @@ program Goes_ReBroadcast_converter
             allocate (cm_2d(nx, ny))
          end if
 
+         write(6, 101)  'ck 3'         
+
          it = ftime_id(ifile)
          ib = fband_id(ifile)
+
+         write(6, 101)  'ck 4'
 
          if ( .not. is_BCM(ifile) ) then
 
@@ -317,6 +339,8 @@ program Goes_ReBroadcast_converter
                end do
             end do
 
+            write(6, 101)  'ck 4.a'
+            
          else
 
             call read_L2_BCM(ncid, nx, ny, cm_2d, time_start(it))
@@ -329,8 +353,11 @@ program Goes_ReBroadcast_converter
             if ( .not. allocated(rdata(it)%cm) )  allocate (rdata(it)%cm(nx,ny))
             rdata(it)%cm(:,:) = cm_2d(:,:)
 
+            write(6, 101)  'ck 4.b'
+            
          end if
 
+         
          nf_status = nf_CLOSE(ncid)
 
       end if
@@ -342,6 +369,8 @@ program Goes_ReBroadcast_converter
    if ( allocated(qf_2d) )  deallocate(qf_2d)
    if ( allocated(cm_2d) )  deallocate(cm_2d)
 
+   write(6, 101)  'ck 5'
+   
    if ( write_iodav1 ) then
       do it = 1, ntime
          out_fname = trim(data_id)//'_'//sat_id//'_'//time_start(it)//'.nc4'
@@ -356,6 +385,11 @@ program Goes_ReBroadcast_converter
       end do
    end if
 
+   write(6, 101)  'ck 6'   
+   stop 'nail 1'
+   
+   include '../myformat.inc'   
+   
    if ( allocated(glat) )   deallocate(glat)
    if ( allocated(glon) )   deallocate(glon)
    if ( allocated(gzen) )   deallocate(gzen)
@@ -1032,5 +1066,18 @@ subroutine calc_solar_zenith_angle(nx, ny, xlat, xlon, xtime, julian, solzen, go
 
    return
 end subroutine calc_solar_zenith_angle
+
+!     This subroutine handles errors by printing an error message and
+!     exiting with a non-zero status.
+  subroutine check(errcode)
+    use netcdf
+    implicit none
+    integer, intent(in) :: errcode
+    
+    if(errcode /= nf90_noerr) then
+       print *, 'Error: ', trim(nf90_strerror(errcode))
+       stop 2
+    endif
+  end subroutine check
 
 end program Goes_ReBroadcast_converter

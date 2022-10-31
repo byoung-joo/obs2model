@@ -12,5 +12,5 @@ test_abi_read/d.*
 test_abi_read/fort.*
 test_abi_read/r
 test_abi_read/b
-
+*.nc4
 
