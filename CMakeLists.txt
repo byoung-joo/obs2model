@@ -15,5 +15,7 @@ include(GNUInstallDirs)
 
 find_package(NetCDF REQUIRED COMPONENTS Fortran C)
 
+add_subdirectory( basiclib )
 add_subdirectory( goes2wps )
+
 #add_subdirectory( test )

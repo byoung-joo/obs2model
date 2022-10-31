@@ -17,10 +17,20 @@ program write_latlon_to_wps
 ! SLAB is an allocatable array, because we do not necessarily know in 
 ! advance the size of the array we need to read.
   real, allocatable, dimension(:,:) :: SLAB
+  integer :: iu, iut
+  
+  read (iunit, nml=ctrl)  
+  open (iu, file=trim(infilename), status='unknown')
 
+  iu=11; iut=6
+  
+  it=0 
   DATALOOP : DO
-     read (iunit, nml=wps_geom)
-     read (iunit, nml=goes_interp)
+     it=it+1; if (it>2) exit
+     call scan_begin (iu, 'HDATE', .false.)
+     read(iu, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
+     write(iut, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
+     stop 'nail 1'
      
 !====================================================================================!
 ! READ in your data from the original source - you need to add the reading code here !

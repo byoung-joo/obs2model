@@ -10,7 +10,7 @@
 !************************
 !
 
-module contrl_para
+module control_para
 !
 !
 !==section 1
@@ -31,10 +31,11 @@ module contrl_para
   integer, parameter :: iprt0    = 1000    ! 
   integer, parameter :: nfile_max = 30
 
-  !! namelist /control/  calculation, spec_pt, ispec_abc
+  character (len=50) :: infilename
 
-end module contrl_para
+  namelist /ctrl/  infilename
 
+end module control_para
 
 module wps_geom_para
 !
@@ -68,12 +69,8 @@ module wps_geom_para
   real :: EARTH_RADIUS = 6367470. * .001
   logical :: IS_WIND_EARTH_REL = .FALSE.
   
-
-  namelist /wps_geom/ &
-       HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
-
   !
-  character (len=50) :: filename
+
   !
   !-- for strings
   !

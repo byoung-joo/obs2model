@@ -1,3 +1,7 @@
+
+&ctrl
+  infileanme="d.spec_latlon"
+/
 &data_nml
   nc_list_file = 'flist.txt'
   data_dir = '/Users/yonggang/data/goes_R',         ! path of the GRB nc files
