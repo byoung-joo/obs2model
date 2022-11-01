@@ -29,9 +29,11 @@ module control_para
   integer, parameter :: flunit   = 21      ! files unit for inp_ph_flname
   integer, parameter :: iucmp    = 22      !            for composition reading
   integer, parameter :: iprt0    = 1000    ! 
+  integer, parameter :: iuwps    = 23
   integer, parameter :: nfile_max = 30
+  integer :: ierr
 
-  character (len=50) :: infilename
+  character (len=200) :: infilename
 
   namelist /ctrl/  infilename
 

@@ -17,7 +17,8 @@ program write_latlon_to_wps
 ! SLAB is an allocatable array, because we do not necessarily know in 
 ! advance the size of the array we need to read.
   real, allocatable, dimension(:,:) :: SLAB
-  integer :: iu, iut
+  integer :: iu, iut   ! iunit, iunit_test
+  integer :: it
   
   read (iunit, nml=ctrl)  
   open (iu, file=trim(infilename), status='unknown')
@@ -118,4 +119,4 @@ program write_latlon_to_wps
 
   write(*,'(/,"End of read loop.  Program finished.")')
 
-end program sample_read
+end program write_latlon_to_wps
