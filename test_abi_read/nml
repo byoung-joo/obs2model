@@ -1,6 +1,6 @@
 
 &ctrl
-  infileanme="d.spec_latlon"
+  infilename="d.spec_latlon"
 /
 &data_nml
   nc_list_file = 'flist.txt'

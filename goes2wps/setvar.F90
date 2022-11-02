@@ -18,6 +18,8 @@ module control_para
 !
   implicit none
   SAVE
+  real*8, parameter :: pi       = 3.1415926535897932384626433832795d0
+
   integer, parameter :: mx_str_L=30
   character (len=mx_str_L) :: calculation
   character (len=mx_str_L), allocatable :: keywds(:)

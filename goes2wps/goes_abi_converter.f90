@@ -6,7 +6,7 @@
 ! 27-Oct-2022
 !----------------------------------------------------------------------
 !
-module  mod_Goes_ReBroadcast_converter
+program Goes_ReBroadcast_converter
 !
 ! Purpose: Convert GOES ReBroadcast netCDF files to ioda-v1 format.
 !          Currently only processes bands 7-16.
@@ -111,10 +111,7 @@ module  mod_Goes_ReBroadcast_converter
    integer(i_kind),   allocatable  :: ftime_id(:)
    integer(i_kind),   allocatable  :: julianday(:)
 
-
-   contains
-
-   subroutine Goes_ReBroadcast_converter
+   continue
 
    pi = acos(-1.0)
    deg2rad = pi/180.0
@@ -415,9 +412,8 @@ module  mod_Goes_ReBroadcast_converter
    deallocate(valid)
    deallocate(is_BCM)
 
- end subroutine Goes_ReBroadcast_converter
+contains
 
- 
 subroutine read_GRB_dims(ncid, nx, ny)
    implicit none
    integer(i_kind), intent(in)  :: ncid
@@ -1084,4 +1080,4 @@ end subroutine calc_solar_zenith_angle
     endif
   end subroutine check
 
-end module mod_Goes_ReBroadcast_converter
+end program Goes_ReBroadcast_converter

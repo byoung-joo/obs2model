@@ -18,20 +18,44 @@ program write_latlon_to_wps
 ! advance the size of the array we need to read.
   real, allocatable, dimension(:,:) :: SLAB
   integer :: iu, iut   ! iunit, iunit_test
-  integer :: it
-  
+  integer :: it        ! iter count
+
+  ! local
+  real, allocatable :: lon(:), lat(:)
+  integer :: i, j, k
   read (iunit, nml=ctrl)  
+  write(6,  nml=ctrl)
+  
+  iu=11; iut=6
   open (iu, file=trim(infilename), status='unknown')
 
-  iu=11; iut=6
   
   it=0 
   DATALOOP : DO
      it=it+1; if (it>2) exit
-     call scan_begin (iu, 'HDATE', .false.)
+     call scan_begin (iu, 'HDATE', .true.)
      read(iu, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
      write(iut, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
+
+     stop -1
+     
+!     read(iu, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
+!     write(iut, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
+     ! setup lon-lat
+     dx=360.d0/real(NX); dy=180.d0/real(NY)
+     allocate(lon(NX), lat(NY))
+!     allocate(lat(NY))
+     do i=0, NX-1
+        lon(i)= ( startLon + (0.5d0 + i)*dx )/180.d0 * pi
+     enddo
+     do j=0, NY-1
+        lat(j)= ( startLat + (0.5d0 + j)*dx )/180.d0 * pi
+     enddo
+     write(6,103) lon, lat
+
+
      stop 'nail 1'
+     deallocate(lon, lat)
      
 !====================================================================================!
 ! READ in your data from the original source - you need to add the reading code here !
@@ -119,4 +143,5 @@ program write_latlon_to_wps
 
   write(*,'(/,"End of read loop.  Program finished.")')
 
+  include '../myformat.inc' 
 end program write_latlon_to_wps
