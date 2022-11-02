@@ -12,6 +12,7 @@ program write_latlon_to_wps
 !   format.
   use control_para
   use wps_geom_para
+  use atlas_module, only: atlas_geometry, atlas_indexkdtree
   implicit none
 
 ! SLAB is an allocatable array, because we do not necessarily know in 
@@ -22,6 +23,15 @@ program write_latlon_to_wps
 
   ! local
   real, allocatable :: lon(:), lat(:)
+  real, allocatable :: lon_s(:), lat_s(:)
+
+  type(atlas_indexkdtree) :: kd
+  type(atlas_geometry) :: ageometry
+
+  ! Create KDTree
+  kd = atlas_indexkdtree(ageometry)
+
+  
   integer :: i, j, k
   read (iunit, nml=ctrl)  
   write(6,  nml=ctrl)
@@ -33,18 +43,18 @@ program write_latlon_to_wps
   it=0 
   DATALOOP : DO
      it=it+1; if (it>2) exit
+
+     ! setup lon-lat regular
+     !
      call scan_begin (iu, 'HDATE', .true.)
      read(iu, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
      write(iut, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
      call scan_begin (iu, 'STARTLOC', .false.)
      read(iu, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
      write(iut, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
-     
-
-     ! setup lon-lat
+     !
      dx=360.d0/real(NX); dy=180.d0/real(NY)
      allocate(lon(0:NX-1), lat(0:NY-1))
-!     allocate(lat(NY))
      do i=0, NX-1
         lon(i)= ( startLon + (0.5d0 + i)*dx )/180.d0 * pi
      enddo
@@ -54,7 +64,10 @@ program write_latlon_to_wps
      write(6,103) lon
      write(6,103) lat
 
-
+     
+     ! setup lon-lat satellite     
+!     call read_obs_output_coords_fields (
+     
      stop 'nail 1'
      deallocate(lon, lat)
      stop -1

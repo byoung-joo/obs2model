@@ -6,9 +6,6 @@
 cmake_minimum_required( VERSION 3.12 )
 #project( obs2model VERSION 1.0.0 LANGUAGES C CXX Fortran )
 project( obs2model VERSION 1.0  LANGUAGES C Fortran )
-set( CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8  -fconvert=big-endian -ffree-line-length-none -fno-range-check -fbacktrace")
-
-
 
 # Global Configuration
 # use MPAS cmake dir
@@ -17,6 +14,7 @@ set(CMAKE_DIRECTORY_LABELS ${PROJECT_NAME})
 include(GNUInstallDirs)
 
 find_package(NetCDF REQUIRED COMPONENTS Fortran C)
+
 
 add_subdirectory( basiclib )
 add_subdirectory( goes2wps )

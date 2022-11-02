@@ -1,3 +1,5 @@
+set( CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8  -fconvert=big-endian -ffree-line-length-none -fno-range-check -fbacktrace")
+
 #project(geos2pws)
 #
 #set( src_read_abi
