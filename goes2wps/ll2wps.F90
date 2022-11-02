@@ -36,26 +36,29 @@ program write_latlon_to_wps
      call scan_begin (iu, 'HDATE', .true.)
      read(iu, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
      write(iut, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
-
-     stop -1
+     call scan_begin (iu, 'STARTLOC', .false.)
+     read(iu, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
+     write(iut, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
      
-!     read(iu, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
-!     write(iut, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
+
      ! setup lon-lat
      dx=360.d0/real(NX); dy=180.d0/real(NY)
-     allocate(lon(NX), lat(NY))
+     allocate(lon(0:NX-1), lat(0:NY-1))
 !     allocate(lat(NY))
      do i=0, NX-1
         lon(i)= ( startLon + (0.5d0 + i)*dx )/180.d0 * pi
      enddo
      do j=0, NY-1
-        lat(j)= ( startLat + (0.5d0 + j)*dx )/180.d0 * pi
+        lat(j)= ( startLat + (0.5d0 + j)*dy )/180.d0 * pi
      enddo
-     write(6,103) lon, lat
+     write(6,103) lon
+     write(6,103) lat
 
 
      stop 'nail 1'
      deallocate(lon, lat)
+     stop -1
+
      
 !====================================================================================!
 ! READ in your data from the original source - you need to add the reading code here !
