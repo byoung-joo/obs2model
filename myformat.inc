@@ -11,11 +11,14 @@
 122   format (2x, a,10(2x,i15))
 123   format (2x, 10(2x,i8))
 
+131   format (2x, a,10(2x,L8))
+
 141   format (2x, a, 2x, i8, 10(2x,f15.8))
 142   format (2x, a, 2x, i8, 10(2x,f15.11))
 143   format (2x, a, 2x, i8, 10(2x,E14.7))
 146   format (2x, a, 2x, 2i8, 10(2x,f15.8))
 147   format (2x, a, 2x, 3i8, 10(2x,f15.8))
+
 
 
 201   format (2x, a,10(2x,E14.7))
