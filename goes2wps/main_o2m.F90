@@ -7,9 +7,10 @@
 !  driver of the main code
 !  
 program   main_defect
-  use control_para, only : ichart, timevalues, mx_str_L, keywds
+  use control_para, only : ichart, timevalues, mx_str_L, keywds, pi
   use wps_geom_para
   use goes_R_para
+  use atlas_module, only: atlas_geometry, atlas_indexkdtree
   implicit none
   !
   ! local
@@ -23,6 +24,12 @@ program   main_defect
   integer :: msg
   integer :: i, j, k
   type(converter_nml) :: goesR
+
+  real, allocatable :: lon(:), lat(:)
+  real, allocatable :: lon_s(:), lat_s(:)
+
+  type(atlas_indexkdtree) :: kd
+  type(atlas_geometry) :: ageometry
   
   length_mx=mx_str_L; seg_mx=mx_str_L
   allocate (keywds(length_mx))
@@ -81,13 +88,43 @@ program   main_defect
        (CH100, '=', length_mx, seg_mx, nseg, keywds, jstatus)
   read(keywds(2), *) goesR%n_subsample 
 
-  !-- read WPS lat-lon module
+
+  
+  
+  !-- read WPS lat-lon setup
   !   issue/bug:  
   !  
+  call scan_begin (ichart, 'HDATE', .true., istatus)
+  read(ichart, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
+  write(6, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
+  call scan_begin (ichart, 'STARTLOC', .false., istatus)
+  read(ichart, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
+  write(6, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
+
+
+
+  dx=360.d0/real(NX); dy=180.d0/real(NY)
+  allocate(lon(0:NX-1), lat(0:NY-1))
+  do i=0, NX-1
+     lon(i)= ( startLon + (0.5d0 + i)*dx )/180.d0 * pi
+  enddo
+  do j=0, NY-1
+     lat(j)= ( startLat + (0.5d0 + j)*dy )/180.d0 * pi
+  enddo
+  write(6,103) lon
+  write(6,103) lat
+
+     
+  !   ! setup lon-lat satellite     
+  !   call read_obs_output_coords_fields (filename, 
+     
+     stop 'nail 1'
+     deallocate(lon, lat)
+     stop -1
 
 
   
-  stop 'nail 1'
+
 
   
   write(6, *) goesR
@@ -123,30 +160,3 @@ program   main_defect
   include '../myformat.inc'
 end program main_defect
 
-     ! setup lon-lat regular
-     !
-     call scan_begin (iu, 'HDATE', .true.)
-     read(iu, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
-     write(iut, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
-     call scan_begin (iu, 'STARTLOC', .false.)
-     read(iu, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
-     write(iut, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
-     !
-     dx=360.d0/real(NX); dy=180.d0/real(NY)
-     allocate(lon(0:NX-1), lat(0:NY-1))
-     do i=0, NX-1
-        lon(i)= ( startLon + (0.5d0 + i)*dx )/180.d0 * pi
-     enddo
-     do j=0, NY-1
-        lat(j)= ( startLat + (0.5d0 + j)*dy )/180.d0 * pi
-     enddo
-     write(6,103) lon
-     write(6,103) lat
-
-     
-     ! setup lon-lat satellite     
-     call read_obs_output_coords_fields (filename, 
-     
-     stop 'nail 1'
-     deallocate(lon, lat)
-     stop -1
