@@ -3,7 +3,7 @@
 ################################################################################
 
 cmake_minimum_required( VERSION 3.12 )
-project( cdi VERSION 1.0.0 LANGUAGES C CXX Fortran )
+project( o2m VERSION 1.0.0 LANGUAGES C CXX Fortran )
 
 option(OPENMP "Build ioda with OpenMP support" ON)
 

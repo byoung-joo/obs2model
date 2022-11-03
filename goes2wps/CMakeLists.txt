@@ -13,6 +13,12 @@ set( CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-doub
 #
 
 
+message( STATUS "CMAKE_SOURCE_DIR = ${CMAKE_SOURCE_DIR}" )
+MESSAGE(FATAL_ERRORO "Could not find FOO_EXEC.")
+
+
+#link_directories(${CMAKE_SOURCE_DIR}/basiclib)   # ad-hoc
+
 set( src_wps
      main_o2m.F90
      netcdf_mod.f90
