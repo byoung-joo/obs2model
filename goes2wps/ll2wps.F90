@@ -12,7 +12,9 @@ program write_latlon_to_wps
 !   format.
   use control_para
   use wps_geom_para
+  use goes_R_para,  only: converter_nml 
   use atlas_module, only: atlas_geometry, atlas_indexkdtree
+
   implicit none
 
 ! SLAB is an allocatable array, because we do not necessarily know in 
@@ -28,17 +30,30 @@ program write_latlon_to_wps
   type(atlas_indexkdtree) :: kd
   type(atlas_geometry) :: ageometry
 
-  ! Create KDTree
-  kd = atlas_indexkdtree(ageometry)
-
-  
   integer :: i, j, k
+
+  ! converter namelist loc
+  character(len=256)         :: nc_list_file  !  contains a list of netcdf files to process
+  character(len=256)         :: data_dir
+  character(len=18)          :: data_id
+  character(len=3)           :: sat_id
+  integer(i_kind)            :: n_subsample
+  namelist /converter/ nc_list_file, data_dir, data_id, sat_id, n_subsample
+  type(converter_nml) :: abi
+  
+     
   read (iunit, nml=ctrl)  
   write(6,  nml=ctrl)
+    read (iunit, nml=converter)  
+  write(6,  nml=ctrl)
+
+
   
   iu=11; iut=6
   open (iu, file=trim(infilename), status='unknown')
 
+  ! Create KDTree
+  kd = atlas_indexkdtree(ageometry)
   
   it=0 
   DATALOOP : DO
@@ -66,7 +81,7 @@ program write_latlon_to_wps
 
      
      ! setup lon-lat satellite     
-!     call read_obs_output_coords_fields (
+     call read_obs_output_coords_fields (filename, 
      
      stop 'nail 1'
      deallocate(lon, lat)

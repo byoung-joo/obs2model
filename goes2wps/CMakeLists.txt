@@ -28,6 +28,10 @@ add_executable(2wps.x  ${src_wps} )
 target_link_libraries(2wps.x 
   PUBLIC
   NetCDF::NetCDF_Fortran
-  basic)
+  basic
+  eckit
+  fckit
+  atlas_f
+)
 
 

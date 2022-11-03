@@ -1,0 +1,44 @@
+#-------------------------------------------------------------
+# Y. G. Yu   3-Nov-2022
+# words after  ! and #  are variable names or comments 
+#-------------------------------------------------------------
+
+icompute=$1        # $1=-1/0/1/2/3    gen-inp/.. /extract vasp/dH/carrier
+
+cat > chart_o2m.in << EOF
+
+module_0
+$icompute
+
+module_1
+# goes_abi_converter
+  nc_list_file = 'flist.txt'
+  data_dir = '/Users/yonggang/data/goes_R',         ! path of the GRB nc files
+  data_id = 'OR_ABI-L1b-RadF-M3C13'   ! prefix of the downloaded GRB nc files
+  sat_id = 'G16'
+  n_subsample = 1
+  
+module_2    !  WPS input
+!
+! ref: https://www2.mmm.ucar.edu/wrf/OnLineTutorial/Basics/IM_files/sample.f90
+!
+HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
+2018-04-05_00:00:00    1.0   NOSOURCE     BT     K      BrightnessT     1.0   101   101   1 
+STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
+SWCORNER    -90.0     -180.0     1.0      1.0    6367.47d0
+
+HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
+2018-04-05_00:00:00  1.0  NOSOURCE  CM  1      Cloud_Mask    1.0   101   101   1 
+STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
+SWCORNER    -90.0     -180.0     1.0      1.0    6367.47d0
+
+EOF
+
+cat > flist.txt << EOF
+OR_ABI-L1b-RadF-M3C13_G16_s20181050000419_e20181050011197_c20181050011257.nc
+EOF
+
+
+
+# backup
+#  data_id = 'OR_ABI-L1b-RadF-M6'   ! prefix of the downloaded GRB nc files

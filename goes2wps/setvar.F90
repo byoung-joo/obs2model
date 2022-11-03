@@ -1,51 +1,31 @@
 !-----------------------------------------------------
-! Yonggang G. Yu 
+! Yonggang G. Yu
+! yuxxx135@umn.edu
 ! 31-Oct-2022
 !-----------------------------------------------------
 
-
-!------
-!************************
-!------  var_module.f90
-!************************
-!
-
 module control_para
-!
-!
-!==section 1
-!  control variables
-!
   implicit none
   SAVE
   real*8, parameter :: pi       = 3.1415926535897932384626433832795d0
-
-  integer, parameter :: mx_str_L=30
+  integer, parameter  :: i_long   = selected_int_kind(8)   ! long integer
+  integer :: i_kind=i_long
+  integer, parameter :: mx_str_L=100
   character (len=mx_str_L) :: calculation
   character (len=mx_str_L), allocatable :: keywds(:)
   !
   !
   integer, parameter :: stdout   = 6       ! output unit
   integer, parameter :: iunit    = 5       ! readin unit
-  integer, parameter :: ounit    = 11       ! readin unit
-  integer, parameter :: flunit   = 21      ! files unit for inp_ph_flname
-  integer, parameter :: iucmp    = 22      !            for composition reading
-  integer, parameter :: iprt0    = 1000    ! 
-  integer, parameter :: iuwps    = 23
+  integer, parameter :: ichart   = 11      ! 
+  integer, parameter :: iuwps    = 23      ! wps binary
   integer, parameter :: nfile_max = 30
-  integer :: ierr
-
-  character (len=200) :: infilename
-
-  namelist /ctrl/  infilename
-
+  integer            :: ierr
+  integer            :: timevalues(8)      ! 
 end module control_para
 
+
 module wps_geom_para
-!
-!==section 2
-!  Computational geometry 
-!
   implicit none
   SAVE
   integer :: IFV=5
@@ -72,14 +52,16 @@ module wps_geom_para
   real :: NLATS
   real :: EARTH_RADIUS = 6367470. * .001
   logical :: IS_WIND_EARTH_REL = .FALSE.
-  
-  !
-
-  !
-  !-- for strings
-  !
-  integer          :: seg_mx   = 10
-  integer          :: nseg
-
 end module wps_geom_para
 
+
+module goes_R_para
+  use control_para, only : i_kind
+  type converter_nml
+     character(len=256)         :: nc_list_file  !  contains a list of netcdf files to process
+     character(len=256)         :: data_dir
+     character(len=18)          :: data_id
+     character(len=3)           :: sat_id
+     integer(i_kind)            :: n_subsample
+  end type converter_nml
+end module goes_R_para
