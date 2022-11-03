@@ -9,7 +9,6 @@ module control_para
   SAVE
   real*8, parameter :: pi       = 3.1415926535897932384626433832795d0
   integer, parameter  :: i_long   = selected_int_kind(8)   ! long integer
-  integer :: i_kind=i_long
   integer, parameter :: mx_str_L=100
   character (len=mx_str_L) :: calculation
   character (len=mx_str_L), allocatable :: keywds(:)
@@ -56,12 +55,12 @@ end module wps_geom_para
 
 
 module goes_R_para
-  use control_para, only : i_kind
+  use control_para, only : i_long
   type converter_nml
      character(len=256)         :: nc_list_file  !  contains a list of netcdf files to process
      character(len=256)         :: data_dir
      character(len=18)          :: data_id
      character(len=3)           :: sat_id
-     integer(i_kind)            :: n_subsample
+     integer(kind=i_long)       :: n_subsample
   end type converter_nml
 end module goes_R_para

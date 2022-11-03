@@ -14,9 +14,10 @@ set( CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-doub
 
 
 set( src_wps
+     main_o2m.F90
      netcdf_mod.f90
-     setvar.F90
-     ll2wps.F90)
+     setvar.F90 )
+#     ll2wps.F90)
 
 #set( src_wps
 #     netcdf_mod.f90
@@ -33,5 +34,3 @@ target_link_libraries(2wps.x
   fckit
   atlas_f
 )
-
-
