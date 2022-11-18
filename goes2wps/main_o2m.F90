@@ -7,6 +7,7 @@
 !  driver of the main code
 !  
 program   main_defect
+  use kinds, only : dp
   use control_para, only : ichart, timevalues, mx_str_L, keywds, pi
   use wps_geom_para
   use goes_R_para
@@ -25,8 +26,8 @@ program   main_defect
   integer :: i, j, k
   type(converter_nml) :: goesR
 
-  real, allocatable :: lon(:), lat(:)
-  real, allocatable :: lon_s(:), lat_s(:)
+  real(dp), allocatable :: lon(:), lat(:)
+  real(dp), allocatable :: lon_s(:), lat_s(:)
 
   type(atlas_indexkdtree) :: kd
   type(atlas_geometry) :: ageometry
@@ -103,7 +104,7 @@ program   main_defect
 
 
 
-  dx=360.d0/real(NX); dy=180.d0/real(NY)
+  dx=360.d0/dble(NX); dy=180.d0/dble(NY)
   allocate(lon(0:NX-1), lat(0:NY-1))
   do i=0, NX-1
      lon(i)= ( startLon + (0.5d0 + i)*dx )/180.d0 * pi

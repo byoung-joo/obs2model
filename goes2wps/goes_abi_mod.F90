@@ -1,12 +1,12 @@
 !----------------------------------------------------------------------
-! Starting code from Jamie Bresch:
+! Code adapted from 
 !    https://github.com/jamiebresch/obs2ioda/blob/main/goes_abi/src/goes_abi_converter.f90
 !
 ! Yonggang G. Yu
 ! 27-Oct-2022
 !----------------------------------------------------------------------
 !
-module  mod_Goes_ReBroadcast_converter
+module  mod_goes_abi
 !
 ! Purpose: Convert GOES ReBroadcast netCDF files to ioda-v1 format.
 !          Currently only processes bands 7-16.
@@ -24,6 +24,7 @@ module  mod_Goes_ReBroadcast_converter
 !          n_subsample = 1
 !        /
 
+   use goes_R_para
    use netcdf_mod, only: open_netcdf_for_write, close_netcdf, &
       def_netcdf_dims, def_netcdf_var, def_netcdf_end, &
       put_netcdf_var, missing_r
@@ -35,7 +36,7 @@ module  mod_Goes_ReBroadcast_converter
    integer, parameter  :: r_double = selected_real_kind(15) ! double precision
    integer, parameter  :: i_byte   = selected_int_kind(1)   ! byte integer
    integer, parameter  :: i_short  = selected_int_kind(4)   ! short integer
-   integer, parameter  :: i_long   = selected_int_kind(8)   ! long integer
+   ! integer, parameter  :: i_long   = selected_int_kind(8)   ! long integer  exist in setvar.F90
    integer, parameter  :: i_kind   = i_long                 ! default integer
    integer, parameter  :: r_kind   = r_single               ! default real
 
@@ -83,14 +84,13 @@ module  mod_Goes_ReBroadcast_converter
    integer(i_kind)      :: iunit    = 87
    integer :: uop = 7   ! output unit
    
+!-- variables to be overwritten by converter_nml
    character(len=256)              :: nc_list_file  ! the text file that contains a list of netcdf files to process
    character(len=256)              :: data_dir
    character(len=18)               :: data_id
    character(len=3)                :: sat_id
    integer(i_kind)                 :: n_subsample
    logical                         :: write_iodav1
-
-   namelist /data_nml/ nc_list_file, data_dir, data_id, sat_id, n_subsample
 
    real(r_kind)                    :: sdtb ! to be done
    integer(i_kind)                 :: istat
@@ -110,71 +110,77 @@ module  mod_Goes_ReBroadcast_converter
    integer(i_kind),   allocatable  :: fband_id(:)
    integer(i_kind),   allocatable  :: ftime_id(:)
    integer(i_kind),   allocatable  :: julianday(:)
-
-
    contains
 
-   subroutine Goes_ReBroadcast_converter
+     
+   subroutine Goes_ReBroadcast_converter (nml_input, ndim_mx, NF_mx, N, NF, lon, lat, F)
+     implicit none
+     type (converter_nml), intent(in) :: nml_input
+     integer, intent(in)  :: ndim_mx, NF_mx
+     integer, intent(out) :: NF     ! nfield
+     integer, intent(out) :: N      ! ndim
+     real,    intent(out) :: lon(ndim_mx), lat(ndim_mx)
+     real,    intent(out) :: F(ndim_mx, NF_mx)
 
-   pi = acos(-1.0)
-   deg2rad = pi/180.0
-   rad2deg = 1.0/deg2rad
-   !
-   ! initialize namelist variables
-   !
-   nc_list_file   = 'flist.txt'
-   data_dir       = '.'
-   data_id        = 'OR_ABI-L1b-RadC-M3'
-   sat_id         = 'G16'
-   n_subsample    = 1
-   write_iodav1   = .false.
-   !write_iodav1   = .true.
-   !
-   ! read namelist
-   !
-   !open(unit=nml_unit, file='namelist.goes_abi_converter', status='unknown')
-   open(unit=nml_unit, file='nml', status='unknown')
-   read(unit=nml_unit, nml=data_nml, iostat=istat)
-   write(6,nml=data_nml)
-   if ( istat .NE. 0 ) then
-      write(uop,*) 'Error reading namelist data_nml'
-      stop
-   end if
-   write(6,*)
+     NF=1; N=1
+     lon=0.0; lat=0.0; F=0.0
+     
+     pi = acos(-1.0)
+     deg2rad = pi/180.0
+     rad2deg = 1.0/deg2rad
+     !
+     ! initialize namelist variables
+     !
+     nc_list_file   = nml_input%nc_list_file   ! 'flist.txt'
+     data_dir       = nml_input%data_dir       ! '.'
+     data_id        = nml_input%data_id        ! 'OR_ABI-L1b-RadC-M3'
+     sat_id         = nml_input%sat_id         ! 'G16'
+     n_subsample    = nml_input%n_subsample    ! 1
+     write_iodav1   = .false.
+     !write_iodav1   = .true.
+
+     !     write(6, nml_input)
+     write(6, *) nml_input
+
+     if ( istat .NE. 0 ) then
+        write(uop,*) 'Error reading namelist data_nml'
+        stop
+     end if
+     write(6,*)
+     
+     ! get file names from nc_list_file
+     nfile  = 0  ! initialize the number of netcdf files to read
+     inquire(file=trim(nc_list_file), exist=isfile)
+     if ( .not. isfile ) then
+        write(uop,*) 'File not found: nc_list_file '//trim(nc_list_file)
+        stop 1
+     else
+        open(unit=iunit, file=trim(nc_list_file), status='old', form='formatted')
+        !first find out the number of netcdf files to read
+        istat = 0
+        do while ( istat == 0 )
+           read(unit=iunit, fmt='(a)', iostat=istat) txtbuf
+           if ( istat /= 0 ) then
+              exit
+           else
+              nfile = nfile + 1
+           end if
+        end do
+        if ( nfile > 0 ) then
+           allocate (nc_fnames(nfile))
+           !read the nc_list_file again to get the netcdf file names
+           rewind(iunit)
+           do ifile = 1, nfile
+              read(unit=iunit, fmt='(a)', iostat=istat) nc_fnames(ifile)
+              write(6, 101) trim(nc_fnames(ifile))
+           end do
+        else
+           write(uop,*) 'File not found from nc_list_file '//trim(nc_list_file)
+           stop
+        end if
+        close(iunit)
+     end if !nc_list_file
    
-   ! get file names from nc_list_file
-   nfile  = 0  ! initialize the number of netcdf files to read
-   inquire(file=trim(nc_list_file), exist=isfile)
-   if ( .not. isfile ) then
-      write(uop,*) 'File not found: nc_list_file '//trim(nc_list_file)
-      stop 1
-   else
-      open(unit=iunit, file=trim(nc_list_file), status='old', form='formatted')
-      !first find out the number of netcdf files to read
-      istat = 0
-      do while ( istat == 0 )
-         read(unit=iunit, fmt='(a)', iostat=istat) txtbuf
-         if ( istat /= 0 ) then
-            exit
-         else
-            nfile = nfile + 1
-         end if
-      end do
-      if ( nfile > 0 ) then
-         allocate (nc_fnames(nfile))
-         !read the nc_list_file again to get the netcdf file names
-         rewind(iunit)
-         do ifile = 1, nfile
-            read(unit=iunit, fmt='(a)', iostat=istat) nc_fnames(ifile)
-            write(6, 101) trim(nc_fnames(ifile))
-         end do
-      else
-         write(uop,*) 'File not found from nc_list_file '//trim(nc_list_file)
-         stop
-      end if
-      close(iunit)
-   end if !nc_list_file
-
    
    allocate (ftime_id(nfile))
    allocate (scan_time(nfile))
@@ -389,7 +395,7 @@ module  mod_Goes_ReBroadcast_converter
    end if
 
    write(6, 101)  'ck 6'   
-   stop 'nail 1'
+   stop 'nail 2'
    
    include '../myformat.inc'   
    
@@ -1084,4 +1090,4 @@ end subroutine calc_solar_zenith_angle
     endif
   end subroutine check
 
-end module mod_Goes_ReBroadcast_converter
+end module mod_goes_abi
