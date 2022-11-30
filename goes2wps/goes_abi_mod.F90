@@ -112,15 +112,15 @@ module  mod_goes_abi
    integer(i_kind),   allocatable  :: julianday(:)
    contains
 
-     
+
    subroutine Goes_ReBroadcast_converter (nml_input, ndim_mx, NF_mx, N, NF, lon, lat, F)
      implicit none
      type (converter_nml), intent(in) :: nml_input
      integer, intent(in)  :: ndim_mx, NF_mx
      integer, intent(out) :: NF     ! nfield
      integer, intent(out) :: N      ! ndim
-     real,    intent(out) :: lon(ndim_mx), lat(ndim_mx)
-     real,    intent(out) :: F(ndim_mx, NF_mx)
+     real,    intent(out) :: lon(ndim_mx), lat(ndim_mx)  ! 
+     real,    intent(out) :: F(ndim_mx, NF_mx)           ! field
 
      NF=1; N=1
      lon=0.0; lat=0.0; F=0.0

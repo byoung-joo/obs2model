@@ -6,12 +6,13 @@
 !
 !  driver of the main code
 !  
-program   main_defect
+program   main_o2m
   use kinds, only : dp
   use control_para, only : ichart, timevalues, mx_str_L, keywds, pi
   use wps_geom_para
   use goes_R_para
   use atlas_module, only: atlas_geometry, atlas_indexkdtree
+  use mod_goes_abi
   implicit none
   !
   ! local
@@ -24,11 +25,12 @@ program   main_defect
   character (len=mx_str_L):: CH100, CHX
   integer :: msg
   integer :: i, j, k
+  integer :: ndim_mx, NF_mx, ndim, NF
   type(converter_nml) :: goesR
-
+  
   real(dp), allocatable :: lon(:), lat(:)
   real(dp), allocatable :: lon_s(:), lat_s(:)
-
+  
   type(atlas_indexkdtree) :: kd
   type(atlas_geometry) :: ageometry
   
@@ -89,7 +91,6 @@ program   main_defect
        (CH100, '=', length_mx, seg_mx, nseg, keywds, jstatus)
   read(keywds(2), *) goesR%n_subsample 
 
-
   
   
   !-- read WPS lat-lon setup
@@ -101,7 +102,6 @@ program   main_defect
   call scan_begin (ichart, 'STARTLOC', .false., istatus)
   read(ichart, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
   write(6, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
-
 
 
   dx=360.d0/dble(NX); dy=180.d0/dble(NY)
@@ -118,14 +118,17 @@ program   main_defect
      
   !   ! setup lon-lat satellite     
   !   call read_obs_output_coords_fields (filename, 
-     
-     stop 'nail 1'
-     deallocate(lon, lat)
-     stop -1
 
+  nlevel= 7
+  nip= 10*4**nlevel + 2
+  ndim_mx= nip
+  allocate (lon_s(ndim_mx), lat_s(ndim_mx))
+  call Goes_ReBroadcast_converter ( goesR, ndim_mx, NF_mx, ndim, NF, 
 
   
-
+  stop 'nail 1'
+  deallocate(lon, lat)
+  stop -1
 
   
   write(6, *) goesR
@@ -149,15 +152,8 @@ program   main_defect
   write(6, '(10a)') trim(keywds(1))
   write(6, '(10a)') trim(keywds(nseg))
   
-
-
-
-
-  
-
-
   
   deallocate(keywds)
+  deallocate(lon, lat, lon_s, lat_s)
   include '../myformat.inc'
-end program main_defect
-
+end program main_o2m
