@@ -50,8 +50,8 @@ module wps_geom_para
   character(len=46) :: DESC
   character(len=32) :: MAP_SOURCE
   real :: XLVL
-  integer :: NX
-  integer :: NY
+  integer :: NXG
+  integer :: NYG
   integer :: IPROJ
   real :: STARTLAT
   real :: STARTLON

@@ -28,6 +28,7 @@ module  mod_goes_abi
    use netcdf_mod, only: open_netcdf_for_write, close_netcdf, &
       def_netcdf_dims, def_netcdf_var, def_netcdf_end, &
       put_netcdf_var, missing_r
+   use control_para, only: pi
 
    implicit none
    include 'netcdf.inc'
@@ -38,7 +39,8 @@ module  mod_goes_abi
    integer, parameter  :: i_short  = selected_int_kind(4)   ! short integer
    ! integer, parameter  :: i_long   = selected_int_kind(8)   ! long integer  exist in setvar.F90
    integer, parameter  :: i_kind   = i_long                 ! default integer
-   integer, parameter  :: r_kind   = r_single               ! default real
+   !   integer, parameter  :: r_kind   = r_single               ! default real
+   integer, parameter  :: r_kind   = r_double               ! default real
 
    ! prefix of Clear Sky Mask (Binary Cloud Mask) output of cspp-geo-aitf package
    character(len=14), parameter :: BCM_id = 'CG_ABI-L2-ACMC'
@@ -47,7 +49,7 @@ module  mod_goes_abi
    integer(i_kind) :: band_start = 7
    integer(i_kind) :: band_end   = 16
 
-   real(r_kind) :: pi, deg2rad, rad2deg
+   real(r_kind) :: deg2rad, rad2deg
 
    logical, allocatable :: got_latlon(:,:)
    real(r_kind), allocatable :: glat(:,:)    ! grid latitude (nx,ny)
@@ -119,13 +121,12 @@ module  mod_goes_abi
      integer, intent(in)  :: ndim_mx, NF_mx
      integer, intent(out) :: NF     ! nfield
      integer, intent(out) :: N      ! ndim
-     real,    intent(out) :: lon(ndim_mx), lat(ndim_mx)  ! 
-     real,    intent(out) :: F(ndim_mx, NF_mx)           ! field
+     real(r_kind), intent(out) :: lon(ndim_mx), lat(ndim_mx)  ! 
+     real(r_kind), intent(out) :: F(ndim_mx, NF_mx)           ! field
 
      NF=1; N=1
      lon=0.0; lat=0.0; F=0.0
      
-     pi = acos(-1.0)
      deg2rad = pi/180.0
      rad2deg = 1.0/deg2rad
      !
@@ -395,8 +396,6 @@ module  mod_goes_abi
    end if
 
    write(6, 101)  'ck 6'   
-   stop 'nail 2'
-   
    include '../myformat.inc'   
    
    if ( allocated(glat) )   deallocate(glat)
@@ -1090,4 +1089,4 @@ end subroutine calc_solar_zenith_angle
     endif
   end subroutine check
 
-end module mod_goes_abi
+ end module mod_goes_abi

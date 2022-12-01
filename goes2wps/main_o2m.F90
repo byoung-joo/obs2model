@@ -24,12 +24,14 @@ program   main_o2m
   logical :: jstatus
   character (len=mx_str_L):: CH100, CHX
   integer :: msg
-  integer :: i, j, k
+  integer :: ia, ja, ka
   integer :: ndim_mx, NF_mx, ndim, NF
+  integer :: nlevel, nip
   type(converter_nml) :: goesR
   
   real(dp), allocatable :: lon(:), lat(:)
   real(dp), allocatable :: lon_s(:), lat_s(:)
+  real(dp), allocatable :: field_s(:,:)
   
   type(atlas_indexkdtree) :: kd
   type(atlas_geometry) :: ageometry
@@ -97,43 +99,41 @@ program   main_o2m
   !   issue/bug:  
   !  
   call scan_begin (ichart, 'HDATE', .true., istatus)
-  read(ichart, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
-  write(6, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NX, NY, IPROJ
+  read(ichart, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NXG, NYG, IPROJ
+  write(6, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NXG, NYG, IPROJ
   call scan_begin (ichart, 'STARTLOC', .false., istatus)
   read(ichart, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
   write(6, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
 
 
-  dx=360.d0/dble(NX); dy=180.d0/dble(NY)
-  allocate(lon(0:NX-1), lat(0:NY-1))
-  do i=0, NX-1
+  dx=360.d0/dble(NXG); dy=180.d0/dble(NYG)
+  allocate(lon(0:NXG-1), lat(0:NYG-1))
+  do i=0, NXG-1
      lon(i)= ( startLon + (0.5d0 + i)*dx )/180.d0 * pi
   enddo
-  do j=0, NY-1
+  do j=0, NYG-1
      lat(j)= ( startLat + (0.5d0 + j)*dy )/180.d0 * pi
   enddo
   write(6,103) lon
   write(6,103) lat
 
-     
-  !   ! setup lon-lat satellite     
-  !   call read_obs_output_coords_fields (filename, 
+  
+  !  read lon / lat / field for satellite     
+  !  call read_obs_output_coords_fields (filename, 
 
   nlevel= 7
   nip= 10*4**nlevel + 2
   ndim_mx= nip
-  allocate (lon_s(ndim_mx), lat_s(ndim_mx))
-  call Goes_ReBroadcast_converter ( goesR, ndim_mx, NF_mx, ndim, NF, 
-
+  NF_mx= 300 
+  allocate (lon_s(ndim_mx), lat_s(ndim_mx), field_s(ndim_mx, NF_mx))
+  call Goes_ReBroadcast_converter ( goesR, ndim_mx, NF_mx, ndim, NF, lon_s, lat_s, field_s )
   
   stop 'nail 1'
   deallocate(lon, lat)
   stop -1
-
   
   write(6, *) goesR
 
-  !
 !
 !
 !   character(len=256)         :: nc_list_file  !  contains a list of netcdf files to process
