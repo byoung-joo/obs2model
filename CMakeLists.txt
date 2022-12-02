@@ -19,7 +19,6 @@ set( CMAKE_DIRECTORY_LABELS ${PROJECT_NAME} )
 include( GNUInstallDirs )
 
 ## Dependencies
-#find_package( jedicmake REQUIRED ) # QUIET )
 if(OPENMP)
   find_package( OpenMP COMPONENTS C CXX Fortran )
 endif()
@@ -33,18 +32,10 @@ else()
     find_package( atlas 0.20.2 REQUIRED )
 endif()
 
-#find_package( oops 1.0.0 REQUIRED )
-#find_package( saber 1.0.0 REQUIRED )
-#find_package( ioda 1.0.0 REQUIRED )
-#find_package( ufo 1.0.0 REQUIRED )
 find_package(NetCDF REQUIRED COMPONENTS Fortran C)
-
 
 add_subdirectory( basiclib )
 add_subdirectory( goes2wps )
-
-#add_subdirectory( test )
-
 
 ## Package Config
 ecbuild_install_project( NAME ${PROJECT_NAME} )
