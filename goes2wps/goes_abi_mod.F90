@@ -120,11 +120,14 @@ module  mod_goes_abi
      type (converter_nml), intent(in) :: nml_input
      integer, intent(in)  :: ndim_mx, NF_mx
      integer, intent(out) :: NF     ! nfield
-     integer, intent(out) :: N      ! ndim
+     integer, intent(out) :: N      ! ndim: grid-point
      real(r_kind), intent(out) :: lon(ndim_mx), lat(ndim_mx)  ! 
      real(r_kind), intent(out) :: F(ndim_mx, NF_mx)           ! field
-
-     NF=1; N=1
+     ! loc
+     integer :: ix
+     
+     ! YGYU add
+     NF=2; N=1    ! 2 vars: (rad,cm), N=nx*ny after reading sat.
      lon=0.0; lat=0.0; F=0.0
      
      deg2rad = pi/180.0
@@ -181,7 +184,8 @@ module  mod_goes_abi
         end if
         close(iunit)
      end if !nc_list_file
-   
+
+     IF(nfile.GT.1) STOP 'nfile.NE.1, wrong!'
    
    allocate (ftime_id(nfile))
    allocate (scan_time(nfile))
@@ -310,7 +314,7 @@ module  mod_goes_abi
             allocate (rad_2d(nx, ny))
             allocate (bt_2d(nx, ny))
             allocate (qf_2d(nx, ny))
-            allocate (cm_2d(nx, ny))
+            allocate (cm_2d(nx, ny))   
          end if
 
          write(6, 101)  'ck 3'         
@@ -349,52 +353,80 @@ module  mod_goes_abi
                end do
             end do
 
+            !
+            ! ygyu
+            ix=0
+            do j = 1, ny; do i = 1, nx
+               ix=ix+1; F(ix,1)= rad_2d(i,j)  !  which band?
+            enddo; enddo
             write(6, 101)  'ck 4.a'
-            
+
          else
-
             call read_L2_BCM(ncid, nx, ny, cm_2d, time_start(it))
-
             if ( time_start(it) /= scan_time(ifile) ) then
                write(uop,*) 'ERROR: scan start time from the file name and the file content do not match.'
                cycle file_loop2
             end if
-
             if ( .not. allocated(rdata(it)%cm) )  allocate (rdata(it)%cm(nx,ny))
             rdata(it)%cm(:,:) = cm_2d(:,:)
 
+            !
+            ! ygyu
+            ix=0
+            do j = 1, ny; do i = 1, nx
+               ix=ix+1; F(ix,2)= cm_2d(i,j)  !  which band?
+            enddo; enddo
             write(6, 101)  'ck 4.b'
-            
-         end if
-
-         
+         end if         
          nf_status = nf_CLOSE(ncid)
-
       end if
 
    end do file_loop2
 
+   
    if ( allocated(rad_2d) ) deallocate(rad_2d)
    if ( allocated(bt_2d) )  deallocate(bt_2d)
    if ( allocated(qf_2d) )  deallocate(qf_2d)
    if ( allocated(cm_2d) )  deallocate(cm_2d)
 
-   write(6, 101)  'ck 5'
-   
-   if ( write_iodav1 ) then
-      do it = 1, ntime
-         out_fname = trim(data_id)//'_'//sat_id//'_'//time_start(it)//'.nc4'
-         write(uop,*) 'Writing ', trim(out_fname)
-         if ( allocated(rdata(it)%cm) ) then
-            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
-               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd, rdata(it)%cm)
-         else
-            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
-               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd)
-         end if
-      end do
-   end if
 
+
+   !
+   ! YGYU insert final state
+   ! radiance data contains freq. band, I use the last one
+   ! code below is fake and wrong.
+   !
+   N=nx*ny
+   write(6, 121) 'ndim_mx, N', ndim_mx, N
+   if (ndim_mx < N) STOP 'upper bound error, ndim_mx < N'
+   ix=0
+   do j = 1, ny
+      do i = 1, nx
+         ix=ix+1
+         lon(ix)= glon(i,j) * deg2rad
+         lat(ix)= glat(i,j) * deg2rad
+         if (mod(ix,10)==1)  write(6, 103) lon(ix), lat(ix)
+      end do
+   end do
+   
+
+! YGYU not needed here
+!
+!   if ( write_iodav1 ) then
+!      do it = 1, ntime
+!         out_fname = trim(data_id)//'_'//sat_id//'_'//time_start(it)//'.nc4'
+!         write(uop,*) 'Writing ', trim(out_fname)
+!         if ( allocated(rdata(it)%cm) ) then
+!            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
+!               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd, rdata(it)%cm)
+!         else
+!            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
+!               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd)
+!         end if
+!      end do
+!   end if
+
+   
    write(6, 101)  'ck 6'   
    include '../myformat.inc'   
    

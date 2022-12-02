@@ -33,4 +33,5 @@ sh chart_o2m $icompute
 
 exec="./2wps.x"
 $exec > a.out
+cat a.out
 exit
