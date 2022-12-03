@@ -57,7 +57,7 @@ program   main_o2m
   read (ichart, *) icompute
 
 
-  !-- read goes_abi_converter module
+  !-- read namelist info for goes_abi_converter 
   !   issue/bug:  used single quotation , code fails in double quote
   !
   goesR%nc_list_file=''
@@ -130,7 +130,7 @@ program   main_o2m
   allocate (lon_s(ndim_mx), lat_s(ndim_mx), field_s(ndim_mx, NF_mx))
 
   
-  !-- missing got_lonlat:  mask ??
+  !-- note output field_s(ndim, NF)  missing got_lonlat [logical]:  mask ?? 
   !-- 
   call Goes_ReBroadcast_converter ( goesR, ndim_mx, NF_mx, ndim, NF, lon_s, lat_s, field_s )
   npts_s= ndim   ! pts from satellite

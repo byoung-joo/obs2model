@@ -1,17 +1,24 @@
-GOES Rebroadcast (GRB)
+
+main_o2m.F90
+   - read namelist input for goes_abi_converter
+   - read namelist input for WPS
+   - call Goes_ReBroadcast_converter  [error in lon/lat due to SP or DP ? ]
+   - interpolation [not tested]
 
 
-s1. module  read_goes
- contains
- - subroutines
-
- - input:
+s1. module  mod_goes_abi [goes_abi_mod.F90]
+    GOES Rebroadcast (GRB)
+    contains
+ - subroutine Goes_ReBroadcast_converter (nml_input, ndim_mx, NF_mx, N, NF, lon, lat, F)
+ 
+ - intended input:
    - nf=2
    - fname(1:nf)
- - output:
-   - nx, ny
+ - intended output:
+   - N= nx*ny
    - lon / lat(nx, ny)    lambda_theta
-   - bt / cm (nx,ny)
+   - Field: F(N, nfield) ::  rad (bt) / cm (cloud mask) 
 
-s2. module interp
-  - input :
+
+unused files:
+  - sample.f90 [WRF sample file for WPS]
