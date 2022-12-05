@@ -1,7 +1,10 @@
+[Aim]
+- Interpolate fields from obs to model
+
 [to build and run]
 
 - source mpas-jedi environment
-- git clone  -b  feature/simplify  https://github.com/metdyn/obs2model.git
+- git clone  -b  develop  https://github.com/metdyn/obs2model.git
 - mkdir build
 - cd build; cmake ../obs2model; make -j4
 - cd -
