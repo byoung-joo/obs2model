@@ -405,12 +405,12 @@ module  mod_goes_abi
          ix=ix+1
          lon(ix)= glon(i,j) * deg2rad
          lat(ix)= glat(i,j) * deg2rad
-         if (mod(ix,200)==1)  write(6, 103) lon(ix), lat(ix)
+!         if (mod(ix,200)==1)  write(6, 103) lon(ix), lat(ix)
       end do
    end do
    
 
-! YGYU not needed here
+! YGYU not needed here from the obs2ioda code
 !
 !   if ( write_iodav1 ) then
 !      do it = 1, ntime
