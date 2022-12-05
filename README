@@ -1,3 +1,4 @@
+source mpas-jedi environment
 git clone  -b  feature/simplify  https://github.com/metdyn/obs2model.git
 mkdir build
 cd build; ecbuild ../obs2model
