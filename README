@@ -1,4 +1,4 @@
-[This code is not mained after 5-Dec-2022 and it still contains bugs]
+[This code is not maintained after 5-Dec-2022 and it still contains bugs]
 
 This project is part of the cloud direct insertion project. It leverages the work of Jamie Bresch https://github.com/jamiebresch/obs2ioda to retrieve obs data, then interpolates to WPS regular lon/lat grid. 
 
@@ -37,9 +37,6 @@ s1. module  mod_goes_abi [goes_abi_mod.F90]
    - N= nx*ny
    - lon / lat(nx, ny)    lambda_theta
    - Field: F(N, nfield) ::  rad (bt) / cm (cloud mask) 
-
-[basiclib]
-   - stringut.F90
 
 [unused]
   - sample.f90 [WRF sample file for WPS]
