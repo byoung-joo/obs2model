@@ -1,10 +1,15 @@
+git clone  -b  feature/simplify  https://github.com/metdyn/obs2model.git
+mkdir build
+cd build; ecbuild ../obs2model
+
+
+[goes2wps]
 
 main_o2m.F90
    - read namelist input for goes_abi_converter
    - read namelist input for WPS
    - call Goes_ReBroadcast_converter  [error in lon/lat due to SP or DP ? ]
    - interpolation [not tested]
-
 
 s1. module  mod_goes_abi [goes_abi_mod.F90]
     GOES Rebroadcast (GRB)
@@ -20,5 +25,9 @@ s1. module  mod_goes_abi [goes_abi_mod.F90]
    - Field: F(N, nfield) ::  rad (bt) / cm (cloud mask) 
 
 
-unused files:
+[basiclib]
+   - stringut.F90
+
+[unused]
   - sample.f90 [WRF sample file for WPS]
+
