@@ -1,5 +1,8 @@
+This project is part of the cloud direct insertion project. It leverage the work of Jamie Bresch (obs2ioda) https://github.com/jamiebresch/obs2ioda to retrieve obs data, then interpolates to WPS regular lon/lat grid. 
+
 [Aim]
 - Interpolate fields from obs to model
+ 
 
 [to build and run]
 
@@ -38,3 +41,8 @@ s1. module  mod_goes_abi [goes_abi_mod.F90]
 
 [unused]
   - sample.f90 [WRF sample file for WPS]
+
+
+[defects]
+  - kd-tree and interplation is not tested
+  - single precsion read-in from obs2ioda code has a bug
