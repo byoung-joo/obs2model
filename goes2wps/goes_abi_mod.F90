@@ -405,7 +405,7 @@ module  mod_goes_abi
          ix=ix+1
          lon(ix)= glon(i,j) * deg2rad
          lat(ix)= glat(i,j) * deg2rad
-         if (mod(ix,10)==1)  write(6, 103) lon(ix), lat(ix)
+         if (mod(ix,200)==1)  write(6, 103) lon(ix), lat(ix)
       end do
    end do
    
