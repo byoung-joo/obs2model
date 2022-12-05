@@ -428,7 +428,7 @@ module  mod_goes_abi
 
    
    write(6, 101)  'ck 6'   
-   include '../myformat.inc'   
+   include 'myformat.inc'   
    
    if ( allocated(glat) )   deallocate(glat)
    if ( allocated(glon) )   deallocate(glon)
