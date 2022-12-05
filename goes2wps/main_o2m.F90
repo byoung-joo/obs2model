@@ -258,5 +258,5 @@ program   main_o2m
   
   deallocate(keywds)
   deallocate(lon, lat, lon_s, lat_s)
-  include '../myformat.inc'
+  include './myformat.inc'
 end program main_o2m
