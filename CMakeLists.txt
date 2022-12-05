@@ -34,7 +34,6 @@ endif()
 
 find_package(NetCDF REQUIRED COMPONENTS Fortran C)
 
-add_subdirectory( basiclib )
 add_subdirectory( goes2wps )
 
 ## Package Config

@@ -12,13 +12,13 @@ set( src_wps
 	netcdf_mod.f90
 	goes_abi_mod.F90
 	main_o2m.F90
+	../basiclib/stringut.F90
 )
 
 add_executable(2wps.x  ${src_wps} )
 target_link_libraries(2wps.x 
   PUBLIC
   NetCDF::NetCDF_Fortran
-  basic
   eckit
   fckit
   atlas_f
