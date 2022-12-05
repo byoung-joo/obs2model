@@ -1,316 +1,366 @@
 module netcdf_mod
 
-use netcdf
-
-implicit none
-
-private
-
-real,    parameter :: missing_r = -999.0
-integer, parameter :: missing_i = -999
-integer, parameter :: nstring = 50
-public :: missing_r
-public :: missing_i
+  use netcdf
+
+  implicit none
+
+  private
+
+  real,    parameter :: missing_r = -999.0
+  integer, parameter :: missing_i = -999
+  integer, parameter :: nstring = 50
+  public :: missing_r
+  public :: missing_i
+
+  ! public subroutines
+  public :: open_netcdf, close_netcdf, get_netcdf_dims, get_netcdf_var_1d
+  public :: open_netcdf_for_write
+  public :: def_netcdf_dims, def_netcdf_var, def_netcdf_end
+  public :: put_netcdf_var
+
+  ! variables visible to this module only
+  integer :: ncstatus
+
+  interface get_netcdf_var_1d
+     module procedure get_netcdf_var_1d_SP
+     module procedure get_netcdf_var_1d_DP
+     module procedure get_netcdf_var_1d_integer
+     module procedure get_netcdf_var_1d_char
+  end interface
+
+  interface put_netcdf_var
+     module procedure put_netcdf_var_SP
+     module procedure put_netcdf_var_DP
+     module procedure put_netcdf_var_integer
+     module procedure put_netcdf_var_char
+  end interface
+
+  contains
 
-! public subroutines
-public :: open_netcdf, close_netcdf, get_netcdf_dims, get_netcdf_var_1d
-public :: open_netcdf_for_write
-public :: def_netcdf_dims, def_netcdf_var, def_netcdf_end
-public :: put_netcdf_var
-
-! variables visible to this module only
-integer :: ncstatus
-
-interface get_netcdf_var_1d
-   module procedure get_netcdf_var_1d_real
-   module procedure get_netcdf_var_1d_integer
-   module procedure get_netcdf_var_1d_char
-end interface
+  subroutine open_netcdf(fname,ncfileid)
+     character(len=*), intent(in) :: fname
+     integer, intent(out) :: ncfileid
 
-interface put_netcdf_var
-   module procedure put_netcdf_var_real
-   module procedure put_netcdf_var_integer
-   module procedure put_netcdf_var_char
-end interface
+     ncstatus = nf90_open(path=trim(adjustl(fname)),mode=nf90_nowrite,ncid=ncfileid)  ! open file
+     if ( ncstatus /= 0 ) then
+        write(0,fmt='(a)') 'error opening netcdf file '//trim(adjustl(fname))
+        write(0,*) 'ncstatus = ', ncstatus
+        stop
+     endif
 
-contains
+     return
+  end subroutine open_netcdf
 
-subroutine open_netcdf(fname,ncfileid)
-   character(len=*), intent(in) :: fname
-   integer, intent(out) :: ncfileid
+  subroutine close_netcdf(fname,ncfileid)
+     character(len=*), intent(in) :: fname
+     integer, intent(in) :: ncfileid
+     ncstatus = nf90_close(ncfileid) ! close file
+     if ( ncstatus /= 0 ) then
+        write(0,fmt='(a)') 'error closing netcdf file '//trim(adjustl(fname))
+        write(0,*) 'ncstatus = ', ncstatus
+        stop
+     endif
+  end subroutine close_netcdf
 
-   ncstatus = nf90_open(path=trim(adjustl(fname)),mode=nf90_nowrite,ncid=ncfileid)  ! open file
-   if ( ncstatus /= 0 ) then
-      write(0,fmt='(a)') 'error opening netcdf file '//trim(adjustl(fname))
-      write(0,*) 'ncstatus = ', ncstatus
-      stop
-   endif
+  subroutine get_netcdf_dims(fileid,variable,output)
+     integer, intent(in) :: fileid
+     character(len=*), intent(in) :: variable
+     integer, intent(out) :: output
 
-   return
-end subroutine open_netcdf
+     integer :: ncdimid, ierr
 
-subroutine close_netcdf(fname,ncfileid)
-   character(len=*), intent(in) :: fname
-   integer, intent(in) :: ncfileid
-   ncstatus = nf90_close(ncfileid) ! close file
-   if ( ncstatus /= 0 ) then
-      write(0,fmt='(a)') 'error closing netcdf file '//trim(adjustl(fname))
-      write(0,*) 'ncstatus = ', ncstatus
-      stop
-   endif
-end subroutine close_netcdf
+     ierr = 0
+     ncstatus = nf90_inq_dimid(fileid,trim(adjustl(variable)),ncdimid) ; ierr = ierr + ncstatus
+     ncstatus = nf90_inquire_dimension(fileid,ncdimid,len=output)      ; ierr = ierr + ncstatus
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error reading dimension for '//trim(adjustl(variable))
+        write(0,*) 'ierr = ',ierr
+        stop
+     endif
+  !  write(*,fmt='(a,i8)')variable//' = ', output ! print out dimensions for the variable
 
-subroutine get_netcdf_dims(fileid,variable,output)
-   integer, intent(in) :: fileid
-   character(len=*), intent(in) :: variable
-   integer, intent(out) :: output
+     return
 
-   integer :: ncdimid, ierr
+  end subroutine get_netcdf_dims
 
-   ierr = 0
-   ncstatus = nf90_inq_dimid(fileid,trim(adjustl(variable)),ncdimid) ; ierr = ierr + ncstatus
-   ncstatus = nf90_inquire_dimension(fileid,ncdimid,len=output)      ; ierr = ierr + ncstatus
-   if ( ierr /= 0 ) then
-      write(0,*) 'Error reading dimension for '//trim(adjustl(variable))
-      write(0,*) 'ierr = ',ierr
-      stop
-   endif
-!  write(*,fmt='(a,i8)')variable//' = ', output ! print out dimensions for the variable
+  subroutine get_netcdf_var_1d_SP(fileid,variable,dim1,output)
 
-   return
+     integer, intent(in) :: fileid, dim1
+     character(len=*), intent(in) :: variable
+     real*4, intent(inout), dimension(dim1)  :: output
 
-end subroutine get_netcdf_dims
+     integer :: ncvarid, ierr
 
-subroutine get_netcdf_var_1d_real(fileid,variable,dim1,output)
-
-   integer, intent(in) :: fileid, dim1
-   character(len=*), intent(in) :: variable
-   real, intent(inout), dimension(dim1)  :: output
+     ierr = 0
+     ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid) ; ierr = ierr + ncstatus
+     ncstatus = nf90_get_var(fileid,ncvarid,output)                    ; ierr = ierr + ncstatus
 
-   integer :: ncvarid, ierr
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error reading data for '//trim(adjustl(variable))
+        write(0,*) 'ierr = ',ierr
+        stop
+     endif
 
-   ierr = 0
-   ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid) ; ierr = ierr + ncstatus
-   ncstatus = nf90_get_var(fileid,ncvarid,output)                    ; ierr = ierr + ncstatus
+     return
 
-   if ( ierr /= 0 ) then
-      write(0,*) 'Error reading data for '//trim(adjustl(variable))
-      write(0,*) 'ierr = ',ierr
-      stop
-   endif
+   end subroutine get_netcdf_var_1d_SP
 
-   return
+   
+   subroutine get_netcdf_var_1d_DP(fileid,variable,dim1,output)
 
-end subroutine get_netcdf_var_1d_real
+     integer, intent(in) :: fileid, dim1
+     character(len=*), intent(in) :: variable
+     real*8, intent(inout), dimension(dim1)  :: output
 
-subroutine get_netcdf_var_1d_integer(fileid,variable,dim1,output)
+     integer :: ncvarid, ierr
 
-   integer, intent(in) :: fileid, dim1
-   character(len=*), intent(in) :: variable
-   integer, intent(inout), dimension(dim1)  :: output
+     ierr = 0
+     ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid) ; ierr = ierr + ncstatus
+     ncstatus = nf90_get_var(fileid,ncvarid,output)                    ; ierr = ierr + ncstatus
 
-   integer :: ncvarid, ierr
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error reading data for '//trim(adjustl(variable))
+        write(0,*) 'ierr = ',ierr
+        stop
+     endif
 
-   ierr = 0
-   ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid) ; ierr = ierr + ncstatus
-   ncstatus = nf90_get_var(fileid,ncvarid,output)                    ; ierr = ierr + ncstatus
+     return
 
-   if ( ierr /= 0 ) then
-      write(0,*) 'Error reading data for '//trim(adjustl(variable))
-      write(0,*) 'ierr = ',ierr
-      stop
-   endif
-
-   return
-
-end subroutine get_netcdf_var_1d_integer
-
-subroutine get_netcdf_var_1d_char(fileid,variable,dim1,output)
-
-   integer, intent(in) :: fileid, dim1
-   character(len=*), intent(in) :: variable
-   character(len=*), intent(inout), dimension(dim1)  :: output
-
-   integer :: ncvarid, ierr
+   end subroutine get_netcdf_var_1d_DP
 
-   ierr = 0
-   ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid) ; ierr = ierr + ncstatus
-   ncstatus = nf90_get_var(fileid,ncvarid,output)                    ; ierr = ierr + ncstatus
+  
+  subroutine get_netcdf_var_1d_integer(fileid,variable,dim1,output)
 
-   if ( ierr /= 0 ) then
-      write(0,*) 'Error reading data for '//trim(adjustl(variable))
-      write(0,*) 'ierr = ',ierr
-      stop
-   endif
-
-   return
+     integer, intent(in) :: fileid, dim1
+     character(len=*), intent(in) :: variable
+     integer, intent(inout), dimension(dim1)  :: output
 
-end subroutine get_netcdf_var_1d_char
+     integer :: ncvarid, ierr
 
-subroutine open_netcdf_for_write(fname,ncfileid)
-   character(len=*), intent(in) :: fname
-   integer, intent(out) :: ncfileid
+     ierr = 0
+     ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid) ; ierr = ierr + ncstatus
+     ncstatus = nf90_get_var(fileid,ncvarid,output)                    ; ierr = ierr + ncstatus
 
-   ! create nc file
-   !ncstatus = nf90_create(path=trim(adjustl(fname)),cmode=nf90_clobber,ncid=ncfileid)
-   ncstatus = nf90_create(path=trim(adjustl(fname)),cmode=NF90_NETCDF4,ncid=ncfileid)
-   if ( ncstatus /= 0 ) then
-      write(0,fmt='(a)') 'error creating netcdf file '//trim(adjustl(fname))
-      write(0,*) 'ierr = ', ncstatus
-      stop
-   endif
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error reading data for '//trim(adjustl(variable))
+        write(0,*) 'ierr = ',ierr
+        stop
+     endif
 
-   return
-end subroutine open_netcdf_for_write
-
-subroutine def_netcdf_dims(fileid,variable,input,output)
-   integer, intent(in) :: fileid
-   character(len=*), intent(in)  :: variable ! name of this dimension
-   integer,          intent(in)  :: input    ! size of this dimension
-   integer,          intent(out) :: output   ! ncid of this dimension
+     return
 
-   integer :: ncdimid, ierr
+  end subroutine get_netcdf_var_1d_integer
 
-   ierr = 0
-   ncstatus = nf90_def_dim(fileid,trim(adjustl(variable)),input,ncdimid)
-   ierr = ierr + ncstatus
-   ncstatus = nf90_put_att(fileid, NF90_GLOBAL, variable, input)
-   ierr = ierr + ncstatus
+  subroutine get_netcdf_var_1d_char(fileid,variable,dim1,output)
 
-   if ( ierr /= 0 ) then
-      write(0,*) 'Error defining dimension for '//trim(adjustl(variable))
-      write(0,*) 'ncstatus = ', ierr
-      stop
-   endif
+     integer, intent(in) :: fileid, dim1
+     character(len=*), intent(in) :: variable
+     character(len=*), intent(inout), dimension(dim1)  :: output
 
-   output = ncdimid
+     integer :: ncvarid, ierr
 
-   return
-end subroutine def_netcdf_dims
+     ierr = 0
+     ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid) ; ierr = ierr + ncstatus
+     ncstatus = nf90_get_var(fileid,ncvarid,output)                    ; ierr = ierr + ncstatus
 
-subroutine def_netcdf_var(fileid,variable,dimids,nctype,attrib_name,attrib)
-
-   integer,               intent(in) :: fileid
-   character(len=*),      intent(in) :: variable
-   integer, dimension(:), intent(in) :: dimids
-   integer,               intent(in) :: nctype
-   character(len=*),      intent(in), optional :: attrib_name
-   character(len=*),      intent(in), optional :: attrib
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error reading data for '//trim(adjustl(variable))
+        write(0,*) 'ierr = ',ierr
+        stop
+     endif
 
-   integer :: ncvarid, ierr
-   character(len=nstring) :: att_name
-   character(len=nstring) :: att
+     return
 
-   ierr = 0
-   ncstatus = nf90_def_var(fileid,trim(adjustl(variable)),nctype,dimids,ncvarid)
-   ierr = ierr + ncstatus
-   if ( nctype == NF90_FLOAT ) then
-      ncstatus = nf90_def_var_fill(fileid, ncvarid, 0, missing_r)
-      ierr = ierr + ncstatus
-   else if ( nctype == NF90_INT ) then
-      ncstatus = nf90_def_var_fill(fileid, ncvarid, 0, missing_i)
-      ierr = ierr + ncstatus
-   end if
+  end subroutine get_netcdf_var_1d_char
 
-   att_name = ''
-   att      = ''
-   if ( present(attrib_name) ) att_name = attrib_name
-   if ( present(attrib     ) ) att      = attrib
-   if ( len_trim(att_name) > 0 .and. len_trim(att) > 0 ) then
-      ncstatus = nf90_put_att(fileid, ncvarid, trim(att_name), trim(att))
-      ierr = ierr + ncstatus
-   end if
+  subroutine open_netcdf_for_write(fname,ncfileid)
+     character(len=*), intent(in) :: fname
+     integer, intent(out) :: ncfileid
 
-   if ( ierr /= 0 ) then
-      write(0,*) 'Error defining var for '//trim(adjustl(variable))
-      write(0,*) 'ierr = ', ierr
-      stop
-   endif
+     ! create nc file
+     !ncstatus = nf90_create(path=trim(adjustl(fname)),cmode=nf90_clobber,ncid=ncfileid)
+     ncstatus = nf90_create(path=trim(adjustl(fname)),cmode=NF90_NETCDF4,ncid=ncfileid)
+     if ( ncstatus /= 0 ) then
+        write(0,fmt='(a)') 'error creating netcdf file '//trim(adjustl(fname))
+        write(0,*) 'ierr = ', ncstatus
+        stop
+     endif
 
-   return
-end subroutine def_netcdf_var
+     return
+  end subroutine open_netcdf_for_write
 
-subroutine def_netcdf_end(fileid)
+  subroutine def_netcdf_dims(fileid,variable,input,output)
+     integer, intent(in) :: fileid
+     character(len=*), intent(in)  :: variable ! name of this dimension
+     integer,          intent(in)  :: input    ! size of this dimension
+     integer,          intent(out) :: output   ! ncid of this dimension
 
-   integer, intent(in) :: fileid
+     integer :: ncdimid, ierr
 
-   ncstatus = nf90_enddef(fileid)
-   if ( ncstatus /= 0 ) then
-      write(0,*) 'Error end defining for fileid = ', fileid
-      write(0,*) 'ncstatus = ', ncstatus
-      stop
-   endif
+     ierr = 0
+     ncstatus = nf90_def_dim(fileid,trim(adjustl(variable)),input,ncdimid)
+     ierr = ierr + ncstatus
+     ncstatus = nf90_put_att(fileid, NF90_GLOBAL, variable, input)
+     ierr = ierr + ncstatus
 
-   return
-end subroutine def_netcdf_end
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error defining dimension for '//trim(adjustl(variable))
+        write(0,*) 'ncstatus = ', ierr
+        stop
+     endif
 
-subroutine put_netcdf_var_real(fileid,variable,input)
+     output = ncdimid
 
-   integer,            intent(in) :: fileid
-   character(len=*),   intent(in) :: variable
-   real, dimension(:), intent(in) :: input
+     return
+  end subroutine def_netcdf_dims
 
-   integer :: ncvarid, ierr
+  subroutine def_netcdf_var(fileid,variable,dimids,nctype,attrib_name,attrib)
 
-   ierr = 0
-   ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid)
-   ierr = ierr + ncstatus
-   ncstatus = nf90_put_var(fileid,ncvarid,input)
-   ierr = ierr + ncstatus
+     integer,               intent(in) :: fileid
+     character(len=*),      intent(in) :: variable
+     integer, dimension(:), intent(in) :: dimids
+     integer,               intent(in) :: nctype
+     character(len=*),      intent(in), optional :: attrib_name
+     character(len=*),      intent(in), optional :: attrib
 
-   if ( ierr /= 0 ) then
-      write(0,*) 'Error writing data for '//trim(adjustl(variable))
-      write(0,*) 'ierr = ',ierr
-      stop
-   endif
+     integer :: ncvarid, ierr
+     character(len=nstring) :: att_name
+     character(len=nstring) :: att
 
-   return
-end subroutine put_netcdf_var_real
+     ierr = 0
+     ncstatus = nf90_def_var(fileid,trim(adjustl(variable)),nctype,dimids,ncvarid)
+     ierr = ierr + ncstatus
+     if ( nctype == NF90_FLOAT ) then
+        ncstatus = nf90_def_var_fill(fileid, ncvarid, 0, missing_r)
+        ierr = ierr + ncstatus
+     else if ( nctype == NF90_INT ) then
+        ncstatus = nf90_def_var_fill(fileid, ncvarid, 0, missing_i)
+        ierr = ierr + ncstatus
+     end if
 
-subroutine put_netcdf_var_integer(fileid,variable,input)
+     att_name = ''
+     att      = ''
+     if ( present(attrib_name) ) att_name = attrib_name
+     if ( present(attrib     ) ) att      = attrib
+     if ( len_trim(att_name) > 0 .and. len_trim(att) > 0 ) then
+        ncstatus = nf90_put_att(fileid, ncvarid, trim(att_name), trim(att))
+        ierr = ierr + ncstatus
+     end if
 
-   integer,               intent(in) :: fileid
-   character(len=*),      intent(in) :: variable
-   integer, dimension(:), intent(in) :: input
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error defining var for '//trim(adjustl(variable))
+        write(0,*) 'ierr = ', ierr
+        stop
+     endif
 
-   integer :: ncvarid, ierr
+     return
+  end subroutine def_netcdf_var
 
-   ierr = 0
-   ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid)
-   ierr = ierr + ncstatus
-   ncstatus = nf90_put_var(fileid,ncvarid,input)
-   ierr = ierr + ncstatus
+  subroutine def_netcdf_end(fileid)
 
-   if ( ierr /= 0 ) then
-      write(0,*) 'Error writing data for '//trim(adjustl(variable))
-      write(0,*) 'ierr = ',ierr
-      stop
-   endif
+     integer, intent(in) :: fileid
 
-   return
-end subroutine put_netcdf_var_integer
+     ncstatus = nf90_enddef(fileid)
+     if ( ncstatus /= 0 ) then
+        write(0,*) 'Error end defining for fileid = ', fileid
+        write(0,*) 'ncstatus = ', ncstatus
+        stop
+     endif
 
-subroutine put_netcdf_var_char(fileid,variable,input)
+     return
+  end subroutine def_netcdf_end
 
-   integer,                        intent(in) :: fileid
-   character(len=*),               intent(in) :: variable
-   character(len=*), dimension(:), intent(in) :: input
+  subroutine put_netcdf_var_SP(fileid,variable,input)
 
-   integer :: ncvarid, ierr
+     integer,            intent(in) :: fileid
+     character(len=*),   intent(in) :: variable
+     real*4, dimension(:), intent(in) :: input
 
-   ierr = 0
-   ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid)
-   ierr = ierr + ncstatus
-   ncstatus = nf90_put_var(fileid,ncvarid,input)
-   ierr = ierr + ncstatus
+     integer :: ncvarid, ierr
 
-   if ( ierr /= 0 ) then
-      write(0,*) 'Error writing data for '//trim(adjustl(variable))
-      write(0,*) 'ierr = ',ierr
-      stop
-   endif
+     ierr = 0
+     ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid)
+     ierr = ierr + ncstatus
+     ncstatus = nf90_put_var(fileid,ncvarid,input)
+     ierr = ierr + ncstatus
 
-   return
-end subroutine put_netcdf_var_char
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error writing data for '//trim(adjustl(variable))
+        write(0,*) 'ierr = ',ierr
+        stop
+     endif
+
+     return
+  end subroutine put_netcdf_var_SP
+
+  subroutine put_netcdf_var_DP(fileid,variable,input)
+
+     integer,            intent(in) :: fileid
+     character(len=*),   intent(in) :: variable
+     real*8, dimension(:), intent(in) :: input
+
+     integer :: ncvarid, ierr
+
+     ierr = 0
+     ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid)
+     ierr = ierr + ncstatus
+     ncstatus = nf90_put_var(fileid,ncvarid,input)
+     ierr = ierr + ncstatus
+
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error writing data for '//trim(adjustl(variable))
+        write(0,*) 'ierr = ',ierr
+        stop
+     endif
+
+     return
+  end subroutine put_netcdf_var_DP
+
+  
+  subroutine put_netcdf_var_integer(fileid,variable,input)
+
+     integer,               intent(in) :: fileid
+     character(len=*),      intent(in) :: variable
+     integer, dimension(:), intent(in) :: input
+
+     integer :: ncvarid, ierr
+
+     ierr = 0
+     ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid)
+     ierr = ierr + ncstatus
+     ncstatus = nf90_put_var(fileid,ncvarid,input)
+     ierr = ierr + ncstatus
+
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error writing data for '//trim(adjustl(variable))
+        write(0,*) 'ierr = ',ierr
+        stop
+     endif
+
+     return
+  end subroutine put_netcdf_var_integer
+
+  subroutine put_netcdf_var_char(fileid,variable,input)
+
+     integer,                        intent(in) :: fileid
+     character(len=*),               intent(in) :: variable
+     character(len=*), dimension(:), intent(in) :: input
+
+     integer :: ncvarid, ierr
+
+     ierr = 0
+     ncstatus = nf90_inq_varid(fileid,trim(adjustl(variable)),ncvarid)
+     ierr = ierr + ncstatus
+     ncstatus = nf90_put_var(fileid,ncvarid,input)
+     ierr = ierr + ncstatus
+
+     if ( ierr /= 0 ) then
+        write(0,*) 'Error writing data for '//trim(adjustl(variable))
+        write(0,*) 'ierr = ',ierr
+        stop
+     endif
+
+     return
+  end subroutine put_netcdf_var_char
 
 end module netcdf_mod

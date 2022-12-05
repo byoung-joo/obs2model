@@ -1,14 +1,25 @@
-project(geos2pws)
+#project(geos2pws)
+#
 
-# Create the executable
-add_executable(${PROJECT_NAME} main.F90)
 
-# Link the static library from subproject1 using its alias sub::lib1
-# Link the header only library from subproject2 using its alias sub::lib2
-# This will cause the include directories for that target to be added to this project
-target_link_libraries(${PROJECT_NAME}
-    abi
+#message( STATUS "CMAKE_SOURCE_DIR = ${CMAKE_SOURCE_DIR}" )
+#MESSAGE(FATAL_ERRORO "Could not find FOO_EXEC.")
+
+#link_directories(${CMAKE_SOURCE_DIR}/basiclib)   # ad-hoc
+
+set( src_wps
+	setvar.F90 
+	netcdf_mod.f90
+	goes_abi_mod.F90
+	main_o2m.F90
+	../basiclib/stringut.F90
 )
 
-# Add a library with the above sources
-add_library(abi  netcdf_mod.f90 goes_abi_converter.f90 )
+add_executable(2wps.x  ${src_wps} )
+target_link_libraries(2wps.x 
+  PUBLIC
+  NetCDF::NetCDF_Fortran
+  eckit
+  fckit
+  atlas_f
+)
