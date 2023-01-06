@@ -32,6 +32,8 @@ program   main_o2m
   real(dp), allocatable :: lon(:), lat(:)
   real(dp), allocatable :: lon_s(:), lat_s(:)
   real(dp), allocatable :: field_s(:,:)
+  real(dp), allocatable :: lon_s_valid(:), lat_s_valid(:)
+  real(dp), allocatable :: field_s_valid(:,:)
   
   type(atlas_indexkdtree) :: kd
   type(atlas_geometry) :: ageometry
@@ -123,11 +125,12 @@ program   main_o2m
   
   !-- read lon / lat / field for satellite     
   !
-  nlevel= 11
-  nip= 10*4**nlevel + 2
-  ndim_mx= nip
-  NF_mx= 300
+  ndim_mx= 5424 * 5424       !BJJ Known parameters
+  NF_mx= 2                   !BJJ BT13 & CM
   allocate (lon_s(ndim_mx), lat_s(ndim_mx), field_s(ndim_mx, NF_mx))
+  lon_s   = -999.
+  lat_s   = -999.
+  field_s = -999.
 
   
   !-- note output field_s(ndim, NF)  missing got_lonlat [logical]:  mask ?? 
@@ -137,16 +140,51 @@ program   main_o2m
 
   write(6,101) 'af call Goes_ReBroadcast_converter'
 
-  do ia=1, 4
-     write(6, 141) 'ia, lon_s(i), lat_s(i)', ia, lon_s(ia), lat_s(ia)
+  do ia=ndim_mx/2,ndim_mx/2+100
+     write(6, *) 'ia, lon_s(i), lat_s(i)', ia, lon_s(ia), lat_s(ia), field_s(ia,:)
   enddo
   
-  write(6,101) 'read sat ABI failed, lon, lat wrong!  '
-  write(6,101) 'possible reasons'
-  write(6,101) '1. kind_real  SP vs DP is set wrong in goes_abi_mod.F90'
-  write(6,101) '2. goes_abi_mod.F90 reading sat. data problem'
+  !--remove missing array
+  ix=0 !count
+  do ia=1,ndim_mx
+     if(field_s(ia,1).ne.-999.0) then
+        ix=ix+1
+!     else
+!        write(6,*) lon_s(ia), lat_s(ia)
+     end if
+  enddo
+  write(6,*) 'BJJ, ndim_mx, ndim, nvalid=',ndim_mx,5424*5424,ix
+  ix=0 !count
+  do ia=1,ndim_mx
+     if(field_s(ia,2).ne.-999.0) then
+        ix=ix+1
+!     else
+!        write(6,*) lon_s(ia), lat_s(ia)
+     end if
+  enddo
+  write(6,*) 'BJJ, ndim_mx, ndim, nvalid=',ndim_mx,5424*5424,ix
+  allocate (lon_s_valid(ix), lat_s_valid(ix), field_s_valid(ix, NF_mx))
+  !lon_s_valid(:)=pack(lon_s,field_s(:,1).eq.-999.0)
+  !lat_s_valid(:)=pack(lon_s,field_s(:,1).eq.-999.0)
+  !field_s_valid(:,1)=pack(lon_s,field_s(:,1).eq.-999.0)
+  !field_s_valid(:,2)=pack(lon_s,field_s(:,1).eq.-999.0)
+  ix=0 !count
+  do ia=1,ndim_mx
+     if (field_s(ia,2).eq.-999.0) then
+        cycle
+     else
+       ix=ix+1
+       lon_s_valid(ix)=lon_s(ia)
+       lat_s_valid(ix)=lat_s(ia)
+       field_s_valid(ix,:)=field_s(ia,:)
+     end if
+  enddo 
 
-  stop 'nail x'
+  write(6,*) 'BJJ, lat=',lat_s_valid(1:30)
+  write(6,*) 'BJJ, tb=',field_s_valid(1:30,1)
+  write(6,*) 'BJJ, cm=',field_s_valid(1:30,2)
+
+!  stop 'nail x'
   
 
   !-- interpolation

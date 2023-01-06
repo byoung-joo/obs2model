@@ -43,7 +43,7 @@ module  mod_goes_abi
    integer, parameter  :: r_kind   = r_double               ! default real
 
    ! prefix of Clear Sky Mask (Binary Cloud Mask) output of cspp-geo-aitf package
-   character(len=14), parameter :: BCM_id = 'CG_ABI-L2-ACMC'
+   character(len=14), parameter :: BCM_id = 'OR_ABI-L2-ACMF'
 
    integer(i_kind), parameter :: nband      = 10  ! IR bands 7-16
    integer(i_kind) :: band_start = 7
@@ -185,8 +185,6 @@ module  mod_goes_abi
         close(iunit)
      end if !nc_list_file
 
-     IF(nfile.GT.1) STOP 'nfile.NE.1, wrong!'
-   
    allocate (ftime_id(nfile))
    allocate (scan_time(nfile))
    allocate (julianday(nfile))
@@ -298,6 +296,7 @@ module  mod_goes_abi
          
          if ( .not. got_grid_info ) then
             call read_GRB_dims(ncid, nx, ny)
+            write(6, *) 'BJJ: nx, ny= ',nx,ny
             allocate (glat(nx, ny))
             allocate (glon(nx, ny))
             allocate (gzen(nx, ny))
@@ -309,6 +308,8 @@ module  mod_goes_abi
             solzen(:,:) = missing_r
             write(uop,*) 'Calculating lat/lon from fixed grid x/y...'
             call read_GRB_grid(ncid, nx, ny, glat, glon, gzen, got_latlon)
+            write(6, *) 'BJJ: glat(nx/2:nx/2+2,ny/2:ny/2+2)=',glat(nx/2:nx/2+2,ny/2:ny/2+2)
+            write(6, *) 'BJJ: glon(nx/2:nx/2+2,ny/2:ny/2+2)=',glon(nx/2:nx/2+2,ny/2:ny/2+2)
             call calc_solar_zenith_angle(nx, ny, glat, glon, scan_time(ifile), julianday(ifile), solzen, got_latlon)
             got_grid_info = .true.
             allocate (rad_2d(nx, ny))
@@ -360,6 +361,7 @@ module  mod_goes_abi
                ix=ix+1; F(ix,1)= rad_2d(i,j)  !  which band?
             enddo; enddo
             write(6, 101)  'ck 4.a'
+            write(6, *) 'BJJ: rad_2d(nx/2:nx/2+2,ny/2:ny/2+2)=',rad_2d(nx/2:nx/2+2,ny/2:ny/2+2)
 
          else
             call read_L2_BCM(ncid, nx, ny, cm_2d, time_start(it))
@@ -374,9 +376,29 @@ module  mod_goes_abi
             ! ygyu
             ix=0
             do j = 1, ny; do i = 1, nx
-               ix=ix+1; F(ix,2)= cm_2d(i,j)  !  which band?
+               ix=ix+1
+               F(ix,2)= real(cm_2d(i,j),r_kind)
+               if(ix.ge.ndim_mx/3.and.ix.le.ndim_mx/3+100) write(6,*) ix,cm_2d(i,j),F(ix,2) !  which band?
             enddo; enddo
             write(6, 101)  'ck 4.b'
+            write(6, *) 'BJJ: cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)=',cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)
+            write(6, *) 'BJJ: ix=',ix
+            write(6, *) 'BJJ: ndim_mx/2 = ',ndim_mx/2
+            write(6, *) 'BJJ: F(ndim_mx/2:ndim_mx/2+6,2)=',F(ndim_mx/2:ndim_mx/2+6,2)
+            write(6, *) 'BJJ: real(cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)=',real(cm_2d(nx/2:nx/2+2,ny/2:ny/2+2),r_kind)
+!    14709888        -999  -999.00000000000000     
+!    14709889        -999  -999.00000000000000     
+!    14709890        -999  -999.00000000000000     
+!    14709891        -999  -999.00000000000000     
+!    14709892        -999  -999.00000000000000     
+!    14709893        -999  -999.00000000000000     
+!    14709894        -999  -999.00000000000000     
+!  ck 4.b
+! BJJ: cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)=           0           0           0           0           0           0           0           0           0
+! BJJ: ix=    29419776
+! BJJ: ndim_mx/2 =     14709888
+! BJJ: F(ndim_mx/2:ndim_mx/2+6,2)=  -999.00000000000000       -999.00000000000000       -999.00000000000000       -999.00000000000000       -999.00000000000000       -999.00000000000000       -999.00000000000000     
+! BJJ: real(cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)=   0.0000000000000000        0.0000000000000000        0.0000000000000000        0.0000000000000000        0.0000000000000000        0.0000000000000000        0.0000000000000000        0.0000000000000000        0.0000000000000000     
          end if         
          nf_status = nf_CLOSE(ncid)
       end if
