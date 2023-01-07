@@ -1,4 +1,4 @@
-#project(geos2pws)
+#project(goes2mpas)
 #
 
 
@@ -7,16 +7,15 @@
 
 #link_directories(${CMAKE_SOURCE_DIR}/basiclib)   # ad-hoc
 
-set( src_wps
+set( src_goes2mpas
 	setvar.F90 
 	netcdf_mod.f90
 	goes_abi_mod.F90
-	main_o2m.F90
-	stringut.F90
+	main.F90
 )
 
-add_executable(2wps.x  ${src_wps} )
-target_link_libraries(2wps.x 
+add_executable(goes2mpas.x  ${src_goes2mpas} )
+target_link_libraries(goes2mpas.x 
   PUBLIC
   NetCDF::NetCDF_Fortran
   eckit

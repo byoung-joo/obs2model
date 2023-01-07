@@ -7,12 +7,12 @@
 !  driver of the main code
 !  
 program   main_o2m
-  use kinds, only : dp
+  use kinds, only : sp, dp
   use control_para, only : ichart, timevalues, mx_str_L, keywds, pi
   use wps_geom_para
-  use goes_R_para
   use atlas_module, only: atlas_geometry, atlas_indexkdtree
-  use mod_goes_abi
+  use mod_goes_abi, only: converter_nml, Goes_ReBroadcast_converter, nml_unit, data_nml
+  use netcdf_mod  !BJJ
   implicit none
   !
   ! local
@@ -24,17 +24,20 @@ program   main_o2m
   logical :: jstatus
   character (len=mx_str_L):: CH100, CHX
   integer :: msg
-  integer :: ia, ja, ka, ix
+  integer :: ia, ja, ka, ix, i, j
   integer :: ndim_mx, NF_mx, ndim, NF, npts_s   ! _s : satellite
   integer :: nlevel, nip
   type(converter_nml) :: goesR
   
   real(dp), allocatable :: lon(:), lat(:)
-  real(dp), allocatable :: lon_s(:), lat_s(:)
-  real(dp), allocatable :: field_s(:,:)
+  real(sp), allocatable :: lon_s(:), lat_s(:)
+  real(sp), allocatable :: field_s(:,:)
   real(dp), allocatable :: lon_s_valid(:), lat_s_valid(:)
   real(dp), allocatable :: field_s_valid(:,:)
-  
+
+  !BJJ TO Read MPAS LAT/LON
+  integer :: ncid, nf_status !BJJ
+ 
   type(atlas_indexkdtree) :: kd
   type(atlas_geometry) :: ageometry
 
@@ -52,65 +55,8 @@ program   main_o2m
        timevalues(5), ':', timevalues(6), ':', timevalues(7)
 
 
-  open (ichart, file='chart_o2m.in', status='unknown')
-  !!open (iucr,   file='d.corr',    status='unknown')
-
-  call scan_begin (ichart, 'Module_0', .true., istatus)
-  read (ichart, *) icompute
-
-
-  !-- read namelist info for goes_abi_converter 
-  !   issue/bug:  used single quotation , code fails in double quote
-  !
-  goesR%nc_list_file=''
-  goesR%data_dir=''
-  goesR%data_id=''
-  goesR%sat_id=''
-  goesR%n_subsample=0
-  !
-  call scan_begin (ichart, 'Module_1', .true., istatus)
-  call scan_begin (ichart, 'nc_list_file', .true., istatus); backspace(ichart); read(ichart, '(a100)') CH100
-  call split_string &
-       (CH100, "'", length_mx, seg_mx, nseg, keywds, jstatus)
-  call remove_quote_in_string(keywds(2),CHX,length_mx)
-  goesR%nc_list_file = trim(CHX)
-  !
-  call scan_begin (ichart, 'data_dir', .true., istatus); backspace(ichart); read(ichart, '(a100)') CH100
-  call split_string &
-       (CH100, "'", length_mx, seg_mx, nseg, keywds, jstatus)
-  call remove_quote_in_string(keywds(2),CHX,length_mx)
-  goesR%data_dir = trim(CHX)
-  !
-  call scan_begin (ichart, 'data_id', .true., istatus); backspace(ichart); read(ichart, '(a100)') CH100
-  call split_string &
-       (CH100, "'", length_mx, seg_mx, nseg, keywds, jstatus)
-  call remove_quote_in_string(keywds(2),CHX,length_mx)
-  goesR%data_id = trim(CHX)
-  !
-  call scan_begin (ichart, 'sat_id', .true., istatus); backspace(ichart); read(ichart, '(a100)') CH100
-  call split_string &
-       (CH100, "'", length_mx, seg_mx, nseg, keywds, jstatus)
-  call remove_quote_in_string(keywds(2),CHX,length_mx)
-  goesR%sat_id = trim(CHX)
-  !
-  call scan_begin (ichart, 'n_subsample', .true., istatus); backspace(ichart); read(ichart, '(a100)') CH100
-  call split_string &
-       (CH100, '=', length_mx, seg_mx, nseg, keywds, jstatus)
-  read(keywds(2), *) goesR%n_subsample 
-
-  
-  
-  !-- read WPS lat-lon setup
-  !   issue/bug:  
-  !  
-  call scan_begin (ichart, 'HDATE', .true., istatus)
-  read(ichart, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NXG, NYG, IPROJ
-  write(6, *) HDATE, XFCST, MAP_SOURCE, FIELD, UNITS, DESC, XLVL, NXG, NYG, IPROJ
-  call scan_begin (ichart, 'STARTLOC', .false., istatus)
-  read(ichart, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
-  write(6, *)  STARTLOC, STARTLAT, STARTLON, DELTALAT, DELTALON, EARTH_RADIUS
-
-
+  !-- WPS GRID for testing
+  NXG=101; NYG=101
   dx=360.d0/dble(NXG); dy=180.d0/dble(NYG)
   allocate(lon(0:NXG-1), lat(0:NYG-1))
   do i=0, NXG-1
@@ -119,8 +65,8 @@ program   main_o2m
   do j=0, NYG-1
      lat(j)= ( startLat + (0.5d0 + j)*dy )/180.d0 * pi
   enddo
-  write(6,103) lon
-  write(6,103) lat
+  !write(6,*) lon
+  !write(6,*) lat
 
   
   !-- read lon / lat / field for satellite     
@@ -132,13 +78,23 @@ program   main_o2m
   lat_s   = -999.
   field_s = -999.
 
+  !-- read goes-abi namelist
+  ! read namelist
+  !
+!  open(unit=nml_unit, file='namelist.goes_abi_converter', status='old', form='formatted')
+!  read(unit=nml_unit, nml=data_nml, iostat=istatus)
+!  write(0,nml=data_nml)
+!  if ( istatus /= 0 ) then
+!     write(0,*) 'Error reading namelist data_nml'
+!     stop
+!  end if
   
   !-- note output field_s(ndim, NF)  missing got_lonlat [logical]:  mask ?? 
   !-- 
-  call Goes_ReBroadcast_converter ( goesR, ndim_mx, NF_mx, ndim, NF, lon_s, lat_s, field_s )
+  call Goes_ReBroadcast_converter (ndim_mx, NF_mx, ndim, NF, lon_s, lat_s, field_s )
   npts_s= ndim   ! pts from satellite
 
-  write(6,101) 'af call Goes_ReBroadcast_converter'
+  write(6,*) 'af call Goes_ReBroadcast_converter'
 
   do ia=ndim_mx/2,ndim_mx/2+100
      write(6, *) 'ia, lon_s(i), lat_s(i)', ia, lon_s(ia), lat_s(ia), field_s(ia,:)
@@ -185,7 +141,37 @@ program   main_o2m
   write(6,*) 'BJJ, cm=',field_s_valid(1:30,2)
 
 !  stop 'nail x'
-  
+ 
+
+!--BJJ Read MPAS LAT/LON
+!  nf_status = nf_OPEN(trim(fname), nf_NOWRITE, ncid)
+  if ( nf_status .ne. 0 ) then
+!      write(0,*) 'ERROR reading '//trim(fname)
+      STOP
+  end if
+!
+!  nf_status(1) = nf_INQ_DIMID(ncid, 'x', dimid)
+!  nf_status(2) = nf_INQ_DIMLEN(ncid, dimid, nx)
+!  nf_status(3) = nf_INQ_DIMID(ncid, 'y', dimid)
+!  nf_status(4) = nf_INQ_DIMLEN(ncid, dimid, ny)
+!  if ( any(nf_status /= 0) ) then
+!      write(uop,*) 'Error reading dimensions'
+!      stop
+!   end if
+!
+!   istart(1) = 1
+!   icount(1) = nx
+!   allocate(itmp_short_1d(nx))
+!   nf_status = nf_INQ_VARID(ncid, 'x', varid)
+!   nf_status = nf_GET_VARA_INT2(ncid, varid, istart(1:1), icount(1:1), itmp_short_1d(:))
+!   nf_status = nf_GET_ATT_REAL(ncid, varid, 'scale_factor', scalef)
+!   nf_status = nf_GET_ATT_REAL(ncid, varid, 'add_offset', offset)
+!   allocate(x(nx))
+!   do i = 1, nx
+!      x(i) = offset + itmp_short_1d(i) * scalef
+!   end do
+!   deallocate(itmp_short_1d)
+!---------------------------------------------- 
 
   !-- interpolation
   !   1. get index for 3-point interpolation
@@ -199,7 +185,7 @@ program   main_o2m
   ageometry = atlas_geometry("UnitSphere")
   kd = atlas_indexkdtree(ageometry)
   call kd%reserve(npts_s)
-  call kd%build(npts_s, lon_s, lat_s)
+  call kd%build(npts_s, real(lon_s,dp), real(lat_s,dp))
   
   ia=0
   do i=0, NXG-1
@@ -210,11 +196,11 @@ program   main_o2m
         ! get nn index
         call kd%closestPoints(lon(i), lat(j), nn, interp_indx(:,ia))
 
-        write(6,121) 'interp_indx(1:nn,ia)', interp_indx(1:nn,ia)
-        write(6,101) 'reg. lon, lat', lon(i), lat(j)
+        write(6,*) 'interp_indx(1:nn,ia)', interp_indx(1:nn,ia)
+        write(6,*) 'reg. lon, lat', lon(i), lat(j)
         do ka=1, nn
            ix=interp_indx(ka,ia)
-           write(6,146) 'ith nn, ix,  lon, lat', ka, ix, lon_s(ix), lat_s(ix)
+           write(6,*) 'ith nn, ix,  lon, lat', ka, ix, lon_s(ix), lat_s(ix)
         enddo
         stop 'nail 1'
 
@@ -286,15 +272,14 @@ program   main_o2m
 !
   
   !-- print
-  write(6,121) 'icompute', icompute
-  write(6,121) 'istatus L47', istatus
-  write(6, 102) 'CH100', CH100  
-  write(6, 121) 'nseg=', nseg
+  write(6,*) 'icompute', icompute
+  write(6,*) 'istatus L47', istatus
+  write(6, *) 'CH100', CH100  
+  write(6, *) 'nseg=', nseg
   write(6, '(10a)') trim(keywds(1))
   write(6, '(10a)') trim(keywds(nseg))
   
   
   deallocate(keywds)
   deallocate(lon, lat, lon_s, lat_s)
-  include './myformat.inc'
 end program main_o2m

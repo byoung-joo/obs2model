@@ -67,14 +67,3 @@ module wps_geom_para
   logical :: IS_WIND_EARTH_REL = .FALSE.
 end module wps_geom_para
 
-
-module goes_R_para
-  use control_para, only : i_long
-  type converter_nml
-     character(len=256)         :: nc_list_file  !  contains a list of netcdf files to process
-     character(len=256)         :: data_dir
-     character(len=18)          :: data_id
-     character(len=3)           :: sat_id
-     integer(kind=i_long)       :: n_subsample
-  end type converter_nml
-end module goes_R_para
