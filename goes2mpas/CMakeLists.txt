@@ -11,6 +11,7 @@ set( src_goes2mpas
 	setvar.F90 
 	netcdf_mod.f90
 	goes_abi_mod.F90
+        read_mpas_mod.F90
 	main.F90
 )
 

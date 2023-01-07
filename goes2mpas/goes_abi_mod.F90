@@ -425,28 +425,25 @@ module  mod_goes_abi
    do j = 1, ny
       do i = 1, nx
          ix=ix+1
-         lon(ix)= glon(i,j) * deg2rad
-         lat(ix)= glat(i,j) * deg2rad
-!         if (mod(ix,200)==1)  write(6, 103) lon(ix), lat(ix)
+         lon(ix)= glon(i,j) !* deg2rad
+         lat(ix)= glat(i,j) !* deg2rad
       end do
    end do
    
 
-! YGYU not needed here from the obs2ioda code
-!
-!   if ( write_iodav1 ) then
-!      do it = 1, ntime
-!         out_fname = trim(data_id)//'_'//sat_id//'_'//time_start(it)//'.nc4'
-!         write(0,*) 'Writing ', trim(out_fname)
-!         if ( allocated(rdata(it)%cm) ) then
-!            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
-!               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd, rdata(it)%cm)
-!         else
-!            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
-!               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd)
-!         end if
-!      end do
-!   end if
+   if ( write_iodav1 ) then
+      do it = 1, ntime
+         out_fname = trim(data_id)//'_'//sat_id//'_'//time_start(it)//'.nc4'
+         write(0,*) 'Writing ', trim(out_fname)
+         if ( allocated(rdata(it)%cm) ) then
+            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
+               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd, rdata(it)%cm)
+         else
+            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
+               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd)
+         end if
+      end do
+   end if
 
    
    if ( allocated(glat) )   deallocate(glat)
