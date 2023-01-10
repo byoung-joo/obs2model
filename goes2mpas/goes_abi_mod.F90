@@ -149,7 +149,6 @@ module  mod_goes_abi
      pi = acos(-1.0)
      deg2rad = pi/180.0
      rad2deg = 1.0/deg2rad
-
      !
      ! initialize namelist variables
      !
@@ -187,7 +186,6 @@ module  mod_goes_abi
         stop 1
      else
         open(unit=iunit, file=trim(nc_list_file), status='old', form='formatted')
-        write(0,*) 'BJJ File found: nc_list_file '//trim(nc_list_file)
         !first find out the number of netcdf files to read
         istat = 0
         do while ( istat == 0 )
@@ -198,14 +196,12 @@ module  mod_goes_abi
               nfile = nfile + 1
            end if
         end do
-        write(0,*) 'BJJ nfile=',nfile
         if ( nfile > 0 ) then
            allocate (nc_fnames(nfile))
            !read the nc_list_file again to get the netcdf file names
            rewind(iunit)
            do ifile = 1, nfile
               read(unit=iunit, fmt='(a)', iostat=istat) nc_fnames(ifile)
-              write(0, *) 'BJJ ', trim(nc_fnames(ifile))
            end do
         else
            write(0,*) 'File not found from nc_list_file '//trim(nc_list_file)
@@ -232,7 +228,7 @@ module  mod_goes_abi
 
       fname = trim(data_dir)//'/'//trim(nc_fnames(ifile))
       inquire(file=trim(fname), exist=isfile)
-      write(0, *) 'BJJ, fname= '//trim(fname)
+      write(0, *) 'BJJ, fname, ifile= '//trim(fname),ifile
       if ( .not. isfile ) then
          write(0,*) 'File not found: '//trim(fname)
          cycle file_loop1
@@ -292,7 +288,6 @@ module  mod_goes_abi
       
    end do file_loop1
 
-   write(6,*) 'BJJ, ntime = ', ntime
    if ( ntime <= 0 ) then
       write(0,*) 'ntime = ', ntime
       write(0,*) 'No valid files found from nc_list_file '//trim(nc_list_file)
@@ -329,8 +324,6 @@ module  mod_goes_abi
             solzen(:,:) = missing_r
             write(0,*) 'Calculating lat/lon from fixed grid x/y...'
             call read_GRB_grid(ncid, nx, ny, glat, glon, gzen, got_latlon)
-            write(0, *) 'BJJ: glat(nx/2:nx/2+2,ny/2:ny/2+2)=',glat(nx/2:nx/2+2,ny/2:ny/2+2)
-            write(0, *) 'BJJ: glon(nx/2:nx/2+2,ny/2:ny/2+2)=',glon(nx/2:nx/2+2,ny/2:ny/2+2)
             call calc_solar_zenith_angle(nx, ny, glat, glon, scan_time(ifile), julianday(ifile), solzen, got_latlon)
             got_grid_info = .true.
             allocate (rad_2d(nx, ny))
@@ -374,9 +367,9 @@ module  mod_goes_abi
             ! ygyu : PASS AS 1-D ARRAY; BJJ
             ix=0
             do j = 1, ny; do i = 1, nx
-               ix=ix+1; F(ix,1)= rad_2d(i,j)  !  which band?
+               ix=ix+1; F(ix,1)= real(rad_2d(i,j),r_kind)  !  which band?
             enddo; enddo
-            write(6, *) 'BJJ: rad_2d(nx/2:nx/2+2,ny/2:ny/2+2)=',rad_2d(nx/2:nx/2+2,ny/2:ny/2+2)
+            !write(6, *) 'BJJ: rad_2d(nx/2:nx/2+2,ny/2:ny/2+2)=',rad_2d(nx/2:nx/2+2,ny/2:ny/2+2)
 
          else
             call read_L2_BCM(ncid, nx, ny, cm_2d, time_start(it))
@@ -392,13 +385,13 @@ module  mod_goes_abi
             do j = 1, ny; do i = 1, nx
                ix=ix+1
                F(ix,2)= real(cm_2d(i,j),r_kind)
-               if(ix.ge.ndim_mx/3.and.ix.le.ndim_mx/3+100) write(6,*) ix,cm_2d(i,j),F(ix,2) !  which band?
+               !if(ix.ge.ndim_mx/3.and.ix.le.ndim_mx/3+100) write(6,*) ix,cm_2d(i,j),F(ix,2) !  which band?
             enddo; enddo
-            write(6, *) 'BJJ: cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)=',cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)
-            write(6, *) 'BJJ: ix=',ix
-            write(6, *) 'BJJ: ndim_mx/2 = ',ndim_mx/2
-            write(6, *) 'BJJ: F(ndim_mx/2:ndim_mx/2+6,2)=',F(ndim_mx/2:ndim_mx/2+6,2)
-            write(6, *) 'BJJ: real(cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)=',real(cm_2d(nx/2:nx/2+2,ny/2:ny/2+2),r_kind)
+            !write(6, *) 'BJJ: cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)=',cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)
+            !write(6, *) 'BJJ: ix=',ix
+            !write(6, *) 'BJJ: ndim_mx/2 = ',ndim_mx/2
+            !write(6, *) 'BJJ: F(ndim_mx/2:ndim_mx/2+6,2)=',F(ndim_mx/2:ndim_mx/2+6,2)
+            !write(6, *) 'BJJ: real(cm_2d(nx/2:nx/2+2,ny/2:ny/2+2)=',real(cm_2d(nx/2:nx/2+2,ny/2:ny/2+2),r_kind)
          end if         
 
          nf_status = nf_CLOSE(ncid)
@@ -425,8 +418,8 @@ module  mod_goes_abi
    do j = 1, ny
       do i = 1, nx
          ix=ix+1
-         lon(ix)= glon(i,j) !* deg2rad
-         lat(ix)= glat(i,j) !* deg2rad
+         lon(ix)= glon(i,j)
+         lat(ix)= glat(i,j)
       end do
    end do
    

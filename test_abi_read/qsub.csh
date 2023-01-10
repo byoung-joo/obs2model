@@ -35,7 +35,7 @@ setenv GFORTRAN_CONVERT_UNIT 'big_endian:101-200'
 module load peak_memusage
 
 
-cd /glade/scratch/bjung/interp/obs2model/test_abi_read
+cd /glade/scratch/bjung/interp/obs2model_alt/test_abi_read
 
-peak_memusage.exe ./run.j
+peak_memusage.exe ./goes2mpas.x
 

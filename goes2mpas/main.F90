@@ -8,10 +8,10 @@
 !  
 program   main
   use kinds, only : sp, dp
-  use control_para, only : timevalues
+  use control_para, only : tval, pii, rad2deg, deg2rad
   use atlas_module, only: atlas_geometry, atlas_indexkdtree
   use mod_goes_abi, only: converter_nml, Goes_ReBroadcast_converter, nml_unit, data_nml
-  use mod_read_mpas, only: read_mpas_latlon
+  use mod_read_mpas, only: read_mpas_latlon, write_to_mpas
   implicit none
   !
   ! local
@@ -21,34 +21,39 @@ program   main
   integer :: istatus
   logical :: jstatus
   integer :: msg
-  integer :: ia, ja, ka, ix, i, j
-  integer :: ndim_mx, NF_mx, ndim, NF, npts_s   ! _s : satellite
+  integer :: i, j, icnt
+  integer :: ndim_mx, NF_mx, ndim, NF
   integer :: nlevel, nip
-  type(converter_nml) :: goesR
-  
-  real(sp), allocatable :: lon_s(:), lat_s(:)
-  real(sp), allocatable :: field_s(:,:)
-  real(sp), allocatable :: lon_mpas(:), lat_mpas(:)
+
+  integer :: nS, iS  ! nS: total number of satellite grid
+  real(sp), allocatable :: lon_s(:), lat_s(:)    ! direct read from file
+  real(sp), allocatable :: field_s(:,:)          !
+  integer :: nS_valid ! only contains # of valid points, removing undefined and missing points.
   real(dp), allocatable :: lon_s_valid(:), lat_s_valid(:)
   real(dp), allocatable :: field_s_valid(:,:)
-  real(dp), allocatable :: lon_mpas_dp(:), lat_mpas_dp(:)
 
   !BJJ TO Read MPAS LAT/LON
-  integer :: ncid, nf_status !BJJ
-  integer :: nC, iC
+  integer :: nC, iC  ! nC: total number of MPAS grid
+  real(sp), allocatable :: lon_mpas(:), lat_mpas(:)       ! to read. depend on the NetCDF file.
+  real(dp), allocatable :: lon_mpas_dp(:), lat_mpas_dp(:) ! for kd-tree
  
+  !kd-tree
   type(atlas_indexkdtree) :: kd
   type(atlas_geometry) :: ageometry
-
-  integer :: nn
+  integer :: nn, ix   ! nn= number of nearest point, ix= temporary indice for interp_indx
   integer, allocatable :: interp_indx(:,:)
-  
-  call date_and_time(VALUES=timevalues)
-  write (6, '(2x,(a,2x,i4,a,i2,a,i2,2x,i2,a,i2,a,i2,/))')  &
-       'Date-time: ', &
-       timevalues(1), '-', timevalues(2), '-', timevalues(3), &
-       timevalues(5), ':', timevalues(6), ':', timevalues(7)
+  !BJJ distance
+  real(dp) :: dist, dist_min
+  integer :: idx_min
+  !BJJ Count # of matching for a given MPAS cell
+  integer, allocatable :: cnt_match(:)
+  real(dp), allocatable :: field_dist(:,:,:)
+  integer :: max_pair
 
+  
+  777 format(2x,(a,2x,i4.4,a,i2.2,a,i2.2,2x,i2.2,a,i2.2,a,i2.2,/))
+  call date_and_time(VALUES=tval)
+  write (6, 777) 'Date-time: ',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 
   !-- read lon / lat / field for satellite     
   !
@@ -62,77 +67,59 @@ program   main
   !-- note output field_s(ndim, NF)  missing got_lonlat [logical]:  mask ?? 
   !-- 
   call Goes_ReBroadcast_converter (ndim_mx, NF_mx, ndim, NF, lon_s, lat_s, field_s )
-  npts_s= ndim   ! pts from satellite
-write(6,*) 'BJJ min/max of lon_s = ',minval(lon_s),maxval(lon_s)
-write(6,*) 'BJJ min/max of lat_s = ',minval(lat_s),maxval(lat_s)
+  nS= ndim   ! pts from satellite
+  call date_and_time(VALUES=tval)
+  write (6, 777) 'GOES READ DONE: ',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 
-  write(6,*) 'af call Goes_ReBroadcast_converter'
-
-  do ia=ndim_mx/2,ndim_mx/2+100
-     write(6, *) 'ia, lon_s(i), lat_s(i)', ia, lon_s(ia), lat_s(ia), field_s(ia,:)
-  enddo
-  
   !--remove missing array
-  ix=0 !count
-  do ia=1,ndim_mx
-     if(field_s(ia,1).ne.-999.0) then
-        ix=ix+1
-!     else
-!        write(6,*) lon_s(ia), lat_s(ia)
+  icnt=0 !count
+  do iS=1,nS
+     if(field_s(iS,1).ne.-999.0) then
+        icnt=icnt+1
      end if
   enddo
-  write(6,*) 'BJJ, ndim_mx, ndim, nvalid=',ndim_mx,5424*5424,ix
-  ix=0 !count
-  do ia=1,ndim_mx
-     if(field_s(ia,2).ne.-999.0) then
-        ix=ix+1
-!     else
-!        write(6,*) lon_s(ia), lat_s(ia)
+  write(6,*) 'BJJ, ndim_mx, ndim, nvalid of R13 =',ndim_mx,5424*5424,icnt
+  icnt=0 !count
+  do iS=1,nS
+     if(field_s(iS,2).ne.-999.0) then
+        icnt=icnt+1
      end if
   enddo
-  npts_s=ix !BJJ used for kd-tree
-  write(6,*) 'BJJ, ndim_mx, ndim, nvalid=',ndim_mx,5424*5424,ix
-  allocate (lon_s_valid(ix), lat_s_valid(ix), field_s_valid(ix, NF_mx))
-  !lon_s_valid(:)=pack(lon_s,field_s(:,1).eq.-999.0)
-  !lat_s_valid(:)=pack(lon_s,field_s(:,1).eq.-999.0)
-  !field_s_valid(:,1)=pack(lon_s,field_s(:,1).eq.-999.0)
-  !field_s_valid(:,2)=pack(lon_s,field_s(:,1).eq.-999.0)
-  ix=0 !count
-  do ia=1,ndim
-     if (field_s(ia,2).eq.-999.0) then
+  write(6,*) 'BJJ, ndim_mx, ndim, nvalid of CM =',ndim_mx,5424*5424,icnt
+  nS_valid=icnt !BJJ used for kd-tree
+  !-- continue
+  allocate (lon_s_valid(nS_valid))
+  allocate (lat_s_valid(nS_valid))
+  allocate (field_s_valid(nS_valid, NF_mx))
+  icnt=0 ! used for indice for valid points
+  do iS=1,nS
+     if (field_s(iS,2).eq.-999.0) then  !BJJ use CM for masking
         cycle
      else
-       ix=ix+1
-       lon_s_valid(ix)=lon_s(ia)
-       lat_s_valid(ix)=lat_s(ia)
-       field_s_valid(ix,:)=field_s(ia,:)
+       icnt=icnt+1
+       lon_s_valid(icnt)=lon_s(iS)
+       lat_s_valid(icnt)=lat_s(iS)
+       field_s_valid(icnt,:)=field_s(iS,:)
      end if
   enddo 
 
-  write(6,*) 'BJJ, lat=',lat_s_valid(1:30)
-  write(6,*) 'BJJ, tb=',field_s_valid(1:30,1)
-  write(6,*) 'BJJ, cm=',field_s_valid(1:30,2)
-
-!  stop 'nail x'
- 
-
-!--BJJ Read MPAS LAT/LON
-   call read_mpas_latlon (nC, lon_mpas, lat_mpas)
-  write(6,*) 'BJJ, lon_mpas(1:10)=',lon_mpas(1:10)
-  write(6,*) 'BJJ, lat_mpas(1:10)=',lat_mpas(1:10)
-  lon_mpas_dp=lon_mpas
+  !--BJJ Read MPAS LAT/LON
+  call read_mpas_latlon (nC, lon_mpas, lat_mpas)  ! unit [radian], single precision
+  lon_mpas_dp=lon_mpas ! pass double precision for kd-tree
   lat_mpas_dp=lat_mpas
   do iC=1,nC
-    if(lon_mpas_dp(iC).gt.3.141592d0) lon_mpas_dp(iC)=lon_mpas_dp(iC)-2.d0*3.141592d0
+    ! range [0,360] --> [-180, 180]
+    if(lon_mpas_dp(iC).gt.pii) lon_mpas_dp(iC)=lon_mpas_dp(iC)-2.d0*pii
   end do
 
 !-----check BJJ
-write(6,*) 'BJJ min/max of lon_s [deg] =',minval(lon_s),maxval(lon_s)
-write(6,*) 'BJJ min/max of lat_s [deg] =',minval(lat_s),maxval(lat_s)
-write(6,*) 'BJJ min/max of lon_s_valid [deg] =',minval(lon_s_valid),maxval(lon_s_valid)
-write(6,*) 'BJJ min/max of lat_s_valid [deg] =',minval(lat_s_valid),maxval(lat_s_valid)
-write(6,*) 'BJJ min/max of lon_mpas_dp [deg] =',minval(lon_mpas_dp)*180./3.1415,maxval(lon_mpas_dp)*180./3.1415
-write(6,*) 'BJJ min/max of lat_mpas_dp [deg] =',minval(lat_mpas_dp)*180./3.1415,maxval(lat_mpas_dp)*180./3.1415
+!write(6,*) 'BJJ min/max of lon_s [deg] =',minval(lon_s),maxval(lon_s)
+!write(6,*) 'BJJ min/max of lat_s [deg] =',minval(lat_s),maxval(lat_s)
+!write(6,*) 'BJJ min/max of lon_s_valid [deg] =',minval(lon_s_valid),maxval(lon_s_valid)
+!write(6,*) 'BJJ min/max of lat_s_valid [deg] =',minval(lat_s_valid),maxval(lat_s_valid)
+!write(6,*) 'BJJ min/max of lon_mpas_dp [deg] =',minval(lon_mpas_dp)*rad2deg,maxval(lon_mpas_dp)*rad2deg
+!write(6,*) 'BJJ min/max of lat_mpas_dp [deg] =',minval(lat_mpas_dp)*rad2deg,maxval(lat_mpas_dp)*rad2deg
+
   !-- interpolation
   !   1. get index for 3-point interpolation
   !   2. get wj; weighted sum
@@ -140,61 +127,99 @@ write(6,*) 'BJJ min/max of lat_mpas_dp [deg] =',minval(lat_mpas_dp)*180./3.1415,
   !   target: model grid
   !
   ! buid kd-tree, find nn index [obs 2 model]
-  nn=3
-  allocate (interp_indx(nn, nC))   ! nC <--> npts_s
+  nn=1  ! number of nearest points
+  allocate (interp_indx(nn, nS_valid))   ! nC <--> nS_valid
   ageometry = atlas_geometry("UnitSphere")
   kd = atlas_indexkdtree(ageometry)
-  call kd%reserve(npts_s)
-  call date_and_time(VALUES=timevalues)
-  write (6, '(2x,(a,2x,i4,a,i2,a,i2,2x,i2,a,i2,a,i2,/))')  &
-       'kd%build start', &
-       timevalues(1), '-', timevalues(2), '-', timevalues(3), &
-       timevalues(5), ':', timevalues(6), ':', timevalues(7)
-  !call kd%build(npts_s, real(lon_s,dp), real(lat_s,dp))  !BJJ this includes the missing points
-  call kd%build(npts_s, lon_s_valid/180.d0*3.1415926d0, lat_s_valid/180.d0*3.1415926d0)
-  !call kd%build(nC, lon_mpas_dp, lat_mpas_dp)
-  call date_and_time(VALUES=timevalues)
-  write (6, '(2x,(a,2x,i4,a,i2,a,i2,2x,i2,a,i2,a,i2,/))')  &
-       'kd%build done', &
-       timevalues(1), '-', timevalues(2), '-', timevalues(3), &
-       timevalues(5), ':', timevalues(6), ':', timevalues(7)
+  call kd%reserve(nC)
+  call date_and_time(VALUES=tval)
+  write (6, 777) 'kd%build start: ',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
+  call kd%build(nC, lon_mpas_dp, lat_mpas_dp)
+  call date_and_time(VALUES=tval)
+  write (6, 777) 'kd%build done: ',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
+
+  allocate(cnt_match(nC)) ! count the pairs for a given MPAS point.
+  cnt_match(:)=0 !init
   
-  ia=0
-  !do iC=0, npts_s-1
-  do iC=1, nC
-        ! get nn index
-!/180.d0*3.1415926d0
-        call kd%closestPoints(lon_mpas_dp(iC), lat_mpas_dp(iC), &
-                              nn, interp_indx(:,iC))
+  do iS=1, nS_valid
+    ! get nn index
+    call kd%closestPoints(lon_s_valid(iS)*deg2rad, lat_s_valid(iS)*deg2rad, &  !need a unit of [radian]
+                          nn, interp_indx(:,iS))
 
-    if(mod(iC,int(nC/100)).eq.0) then
-  call date_and_time(VALUES=timevalues)
-  write (6, '(2x,(a,2x,i4,a,i2,a,i2,2x,i2,a,i2,a,i2,/))')  &
-       'kd%closestPoints ING', &
-       timevalues(1), '-', timevalues(2), '-', timevalues(3), &
-       timevalues(5), ':', timevalues(6), ':', timevalues(7)
-        write(6,*) 'interp_indx(1:nn,ia)', interp_indx(1:nn,iC)
-        write(6,*) 'MPAS : lon, lat = ', &
-                      lon_mpas_dp(iC)*180./3.1415, &
-                      lat_mpas_dp(iC)*180./3.1415
-        do ka=1, nn
-           ix=interp_indx(ka,iC)
-           write(6,*) 'ABI :ith nn, ix,  lon, lat', ka, ix, &
-                    lon_s_valid(ix), &
-                    lat_s_valid(ix)
-        enddo
-     end if
-   end do
-  call date_and_time(VALUES=timevalues)
-  write (6, '(2x,(a,2x,i4,a,i2,a,i2,2x,i2,a,i2,a,i2,/))')  &
-       'kd%closestPoints done', &
-       timevalues(1), '-', timevalues(2), '-', timevalues(3), &
-       timevalues(5), ':', timevalues(6), ':', timevalues(7)
+    !print for quick verif.
+    if(mod(iS,int(nS_valid/10)).eq.0) then
+      write(6,*) 'iS, interp_indx(1:nn,iS)', iS, interp_indx(1:nn,iS)
+      write(6,*) 'ABI : lon, lat = ', lon_s_valid(iS), lat_s_valid(iS)
+      do i=1, nn
+         ix=interp_indx(i,iS)
+         write(6,*) 'MPAS :ith nn, ix,  lon, lat', i, ix, &
+                    lon_mpas_dp(ix)*rad2deg, lat_mpas_dp(ix)*rad2deg
+      enddo
+    end if
 
+    !count # of matching !BJJ ONLY work nn=1 ::NOTE::
+    ix=interp_indx(1,iS)
+    cnt_match(ix)=cnt_match(ix)+1
+!Fortran runtime error: Index '0' of dimension 1 of array 'cnt_match' below lower bound of 1
+  end do
 
-   stop 'nail 1'
+  call date_and_time(VALUES=tval)
+  write (6, 777) 'kd%closestPoints done',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
+
+  ! BJJ: We can write out "interp_indx" as a file.
+
+  ! check the min/max of pairs
+  write(6,*) "BJJ MIN/MAX of pairs = ",minval(cnt_match),maxval(cnt_match)
+  max_pair=maxval(cnt_match)
 
 
+  ! distribute the matched pairs (re-organize)
+  allocate(field_dist(max_pair,nF_mx+2,nC))  ! 1:nF_mx=field, nF_mx+1=lon, nF_mx+2=lat
+  field_dist(:,:,:)=-999.0 !init
+  cnt_match(:)=0 !init
+
+  do iS= 1, nS_valid
+    ix=interp_indx(1,iS)
+    cnt_match(ix)=cnt_match(ix)+1
+    field_dist(cnt_match(ix),1:nF_mx,ix)=field_s_valid(iS,1:nF_mx)
+    field_dist(cnt_match(ix),nF_mx+1,ix)=lon_s_valid(iS)*deg2rad  !pass as [radian] to make the next step easier.
+    field_dist(cnt_match(ix),nF_mx+2,ix)=lat_s_valid(iS)*deg2rad
+    !BJJ as write test
+  enddo
+  call date_and_time(VALUES=tval)
+  write (6, 777) 're-organize data done',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
+
+  !-- THIS IS QUICK TEST FOR WRITE 
+  lat_mpas=-999.0
+
+  ! Find a SINGLE nearest point from a set of matched pairs.
+  do iC= 1, nC
+    dist_min=999. ! init
+    idx_min=999   ! init
+    do iS = 1, cnt_match(iC)
+      !measure a distance between Satellite point and MPAS point,
+      ! then, find closest pair
+      dist = ageometry%distance(lon_mpas_dp(iC),lat_mpas_dp(iC), &
+             field_dist(iS,nF_mx+1,iC),field_dist(iS,nF_mx+2,iC))
+      if (dist .lt. dist_min) then !update
+         dist_min=dist
+         idx_min=iS
+      end if
+    end do
+    !Assign !BJJ for test
+    if (idx_min.ne.999) then
+      lat_mpas(iC) = field_dist(idx_min,1,iC)
+    end if
+  end do !-- nC
+
+  ! write to the existing MPAS file.
+  write(6,*) "BJJ Write nC=",nC
+  write(6,*) "BJJ min/max @ MPAS=",minval(lat_mpas),maxval(lat_mpas)
+  write(6,*) "BJJ min/max @ SATT=", &
+             minval(field_s_valid(:,1)),maxval(field_s_valid(:,1))
+  call write_to_mpas (nC, lat_mpas) !lat_mpas is temporary working array for quick test.
+
+!--- match the minimum distance pairs
         !
         !  sample code from JEDI
         !
@@ -249,8 +274,6 @@ write(6,*) 'BJJ min/max of lat_mpas_dp [deg] =',minval(lat_mpas_dp)*180./3.1415,
   
   stop -1
   
-  write(6, *) goesR
-
 !
 !
 !   character(len=256)         :: nc_list_file  !  contains a list of netcdf files to process

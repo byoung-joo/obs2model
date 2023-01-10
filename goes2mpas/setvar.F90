@@ -21,7 +21,9 @@ end module kinds
 module control_para
   implicit none
   SAVE
-  real*8, parameter :: pi       = 3.1415926535897932384626433832795d0
+  real*8, parameter :: pii      = 3.1415926535897932384626433832795d0
+  real*8, parameter :: deg2rad  = pii/180.0d0
+  real*8, parameter :: rad2deg  = 180.0d0/pii
   integer            :: ierr
-  integer            :: timevalues(8)      ! 
+  integer            :: tval(8)      ! 
 end module control_para
