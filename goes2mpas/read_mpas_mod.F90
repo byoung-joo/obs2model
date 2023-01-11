@@ -84,7 +84,7 @@ module  mod_read_mpas
 !write(0,*) "nf_status.nf90_close=",nf_status
 !
 !----- add new variable to the existing file
-   fname = '/glade/scratch/bjung/interp/obs2model_alt/test_abi_read/testwrite.nc'
+   fname = '/glade/scratch/bjung/interp/obs2model_alt/test_abi_read2/testwrite.nc'
    nf_status = nf90_OPEN(trim(fname), mode=nf90_WRITE, ncid=ncid)
    inquire(file=trim(fname), exist=isfile)
    if ( .not. isfile ) then
