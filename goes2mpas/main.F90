@@ -16,13 +16,8 @@ program   main
   !
   ! local
   !
-  integer :: nnfl=0
-  integer :: icompute
-  integer :: istatus
-  logical :: jstatus
-  integer :: msg
-  integer :: i, j, icnt
-  integer :: nlevel, nip
+  integer :: i, j, icnt, istat
+  integer :: nml_unit = 81
 
   integer :: nx, ny, nfield  ! x y dimension of raw satellite data, number of field read from satellite
   integer :: nS, iS  ! nS: total number of raw satellite grid
@@ -34,7 +29,7 @@ program   main
   real(dp), allocatable :: lon_s_valid(:), lat_s_valid(:)
   real(dp), allocatable :: field_s_valid(:,:)
 
-  !BJJ TO Read MPAS LAT/LON
+  !mpas lat/lon and interpolated field
   integer :: nC, iC  ! nC: total number of MPAS grid
   real(sp), allocatable :: lon_mpas(:), lat_mpas(:)       ! to read. depend on the NetCDF file.
   real(dp), allocatable :: lon_mpas_dp(:), lat_mpas_dp(:) ! for kd-tree
@@ -45,8 +40,6 @@ program   main
   type(atlas_geometry) :: ageometry
   integer :: nn, ix   ! nn= number of nearest point, ix= temporary indice for interp_indx
   integer, allocatable :: interp_indx(:,:)
-  logical :: l_read_indx  ! .true.= read pre-calculated interp_indx from NetCDF file, .false.= calculate it
-  logical :: l_write_indx ! .true.= write pre-calculated interp_indx as NetCDF file
   character(len=256)  :: indx_fname ! file name for indx I/O
   !BJJ distance
   real(dp) :: dist, dist_min
@@ -56,16 +49,40 @@ program   main
   real(dp), allocatable :: field_dist(:,:,:)
   integer :: max_pair
 
-  !BJJ fout
-  character(len=256)  :: out_fname
-  
+  !BJJ namelist for nml_main
+  character(len=256)  :: f_mpas_latlon
+  character(len=256)  :: f_mpas_out
+  logical             :: l_read_indx  ! .true.= read pre-calculated interp_indx from NetCDF file, .false.= calculate it
+  logical             :: l_write_indx ! .true.= write pre-calculated interp_indx as NetCDF file
+  namelist /main_nml/ f_mpas_latlon, f_mpas_out, l_read_indx ,l_write_indx
+ 
+ 
   777 format(2x,(a,2x,i4.4,a,i2.2,a,i2.2,2x,i2.2,a,i2.2,a,i2.2,/))
   call date_and_time(VALUES=tval)
   write (6, 777) 'Date-time: ',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 
-  !-- read lon / lat / field for satellite     
+
+  !----- 0. read namelist ------------------------------------------------------
+  ! initialize namelist variables
+  f_mpas_latlon = './x1.655362.init.nc' ! MPAS file path/name to read lat & lon information
+  f_mpas_out    = './x1.655362.init.nc' ! MPAS file for writing the interpolated ABI fields
+  l_read_indx   = .false.  ! read index and counnt for matching ABI-MPAS pairs
+  l_write_indx  = .false.  ! read index and counnt for matching ABI-MPAS pairs
+
+  ! read namelist
+  open(unit=nml_unit, file='namelist.obs2model', status='old', form='formatted')
+  read(unit=nml_unit, nml=main_nml, iostat=istat)
+  write(0,nml=main_nml)
+  if ( istat /= 0 ) then
+    write(0,*) 'Error reading namelist main_nml'
+    stop
+  end if
+  close(unit=nml_unit)
+
+
+  !----- 1. read ABI -----------------------------------------------------------
+  ! read lon / lat / field for satellite     
   call Goes_ReBroadcast_converter ( lon_s, lat_s, field_s, varname_s, l_latlon )
-!  call Goes_ReBroadcast_converter (ndim_mx, NF_mx, ndim, NF, lon_s, lat_s, field_s )
   nx    =size( field_s, dim=1 )
   ny    =size( field_s, dim=2 )
   nfield=size( field_s, dim=3 )
@@ -74,17 +91,17 @@ program   main
   call date_and_time(VALUES=tval)
   write (6, 777) 'GOES READ DONE: ',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 
-  !--remove missing array
-  icnt=0 !count the valid point
+  ! count the valid point
+  icnt=0
   do i=1,nx
     do j=1,ny
-      if(l_latlon(i,j)) icnt=icnt+1  !BJJ use l_latlon for masking
+      if(l_latlon(i,j)) icnt=icnt+1  ! use l_latlon for masking
     end do
   end do
   nS_valid=icnt !BJJ used for kd-tree
   write(6,*) 'BJJ, nS, nS_valid =', nS, nS_valid, real(nS_valid)/real(nS)*100.,"[%]"
 
-  !-- continue
+  ! keep only the valid point
   allocate (lon_s_valid(nS_valid))
   allocate (lat_s_valid(nS_valid))
   allocate (field_s_valid(nS_valid, nfield))
@@ -101,10 +118,12 @@ program   main
       end if
     end do
   end do
-  if(icnt .ne. nS_valid) STOP 777
+  if(icnt .ne. nS_valid) STOP 777 ! sanity check
 
-  !--BJJ Read MPAS LAT/LON
-  call read_mpas_latlon (nC, lon_mpas, lat_mpas)  ! unit [radian], single precision
+
+  !----- 3. read MPAS ----------------------------------------------------------
+  ! read lon / lat from MPAS file
+  call read_mpas_latlon (f_mpas_latlon, nC, lon_mpas, lat_mpas)  ! unit [radian], single precision
   lon_mpas_dp=lon_mpas ! pass double precision for kd-tree
   lat_mpas_dp=lat_mpas
   do iC=1,nC
@@ -112,8 +131,10 @@ program   main
     if(lon_mpas_dp(iC).gt.pii) lon_mpas_dp(iC)=lon_mpas_dp(iC)-2.d0*pii
   end do
 
+
+  !----- 3. build and search kd-tree -------------------------------------------
   ! buid kd-tree
-  nn=1  ! number of nearest points !BJJ set "1"
+  nn=1  ! number of nearest points !BJJ set "1". No need to be "3"
   allocate (interp_indx(nn, nS_valid))
   ageometry = atlas_geometry("UnitSphere")
   kd = atlas_indexkdtree(ageometry)
@@ -126,9 +147,7 @@ program   main
 
   allocate(cnt_match(nC)) ! count the pairs for a given MPAS point.
   cnt_match(:)=0 !init
-  
-  l_read_indx=.false.
-  l_write_indx=.true.
+
 
   ! Search the nearest indice. indice can be written and read from NetCDF file.
   if ( .not. l_read_indx ) then
@@ -150,7 +169,7 @@ program   main
         enddo
       end if
 
-      !count # of matching !BJJ ONLY work nn=1 ::NOTE::
+      !count # of matching. NOTE: this also works even when nn is not "1".
       ix=interp_indx(1,iS)
       cnt_match(ix)=cnt_match(ix)+1
     end do
@@ -169,14 +188,14 @@ program   main
 
   end if !-- of l_read_indx
 
-
   ! check the min/max of pairs
-  write(6,*) "BJJ MIN/MAX of pairs = ",minval(cnt_match),maxval(cnt_match)
+  write(6,*) "BJJ: MIN/MAX of matching pairs = ",minval(cnt_match),maxval(cnt_match)
   max_pair=maxval(cnt_match)
 
 
+  !----- 4. re-organize the matching pairs -------------------------------------
   ! distribute the matched pairs (re-organize)
-  allocate(field_dist(max_pair,nfield+2,nC))  ! 1:nfield=field, nfield+1=lon, nfield+2=lat
+  allocate(field_dist(max_pair,nfield+2,nC))  ! [1:nfield] for fields; nfield+1 for lon; nfield+2 for lat
   field_dist(:,:,:)=-999.0 !init
   cnt_match(:)=0 !init
 
@@ -184,7 +203,7 @@ program   main
     ix=interp_indx(1,iS)
     cnt_match(ix)=cnt_match(ix)+1
     field_dist(cnt_match(ix),1:nfield,ix)=field_s_valid(iS,1:nfield)
-    field_dist(cnt_match(ix),nfield+1,ix)=lon_s_valid(iS)*deg2rad  !pass as [radian] to make the next step easier.
+    field_dist(cnt_match(ix),nfield+1,ix)=lon_s_valid(iS)*deg2rad  !pass as [radian] to make the next step [dist] easier.
     field_dist(cnt_match(ix),nfield+2,ix)=lat_s_valid(iS)*deg2rad
     !BJJ as write test
   enddo
@@ -197,25 +216,27 @@ program   main
   deallocate(field_s_valid)
   deallocate(interp_indx)
 
-  ! BJJ allocate and initialize the field_mpas
+
+  !----- 5. find the neasest pair ----------------------------------------------
+  ! allocate and initialize the field_mpas
   allocate( field_mpas(nC,nfield) )
   field_mpas=-999.0
 
-  ! Find a SINGLE nearest point from a set of matched pairs.
+  ! find a SINGLE nearest point from a set of matching pairs.
   do iC= 1, nC
     dist_min=999. ! init
     idx_min=999   ! init
     do iS = 1, cnt_match(iC)
-      !measure a distance between Satellite point and MPAS point,
+      ! measure a distance between Satellite point and MPAS point,
       ! then, find closest pair
       dist = ageometry%distance(lon_mpas_dp(iC),lat_mpas_dp(iC), &
              field_dist(iS,nfield+1,iC),field_dist(iS,nfield+2,iC))
-      if (dist .lt. dist_min) then !update
+      if (dist .lt. dist_min) then ! update
          dist_min=dist
          idx_min=iS
       end if
     end do
-    !Assign
+    ! assign
     if (idx_min.ne.999) then
       field_mpas(iC,1:nfield) = field_dist(idx_min,1:nfield,iC)
     end if
@@ -227,9 +248,10 @@ program   main
   deallocate(cnt_match)
   deallocate(field_dist)
 
+
+  !----- 6. Write the fields to MPAS file---------------------------------------
   ! write to the existing MPAS file.
-  out_fname="/glade/scratch/bjung/interp/obs2model_alt/test_abi_read2/testwrite3.nc"
-  call write_to_mpas (out_fname, nC, nfield, field_mpas, varname_s) !lat_mpas is temporary working array for quick test.
+  call write_to_mpas (f_mpas_out, nC, nfield, field_mpas, varname_s)
   call date_and_time(VALUES=tval)
   write (6, 777) 'write_to_mpas done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 

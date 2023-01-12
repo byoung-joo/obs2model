@@ -87,19 +87,14 @@ module  mod_goes_abi
    integer(i_kind)      :: nml_unit = 81
    integer(i_kind)      :: iunit    = 87
    
-!-- variables to be overwritten by converter_nml
    character(len=256)              :: nc_list_file  ! the text file that contains a list of netcdf files to process
    character(len=256)              :: data_dir
    character(len=18)               :: data_id
    character(len=3)                :: sat_id
    integer(i_kind)                 :: n_subsample
-   logical                         :: do_superob
-   integer(i_kind)                 :: superob_halfwidth
-   logical                         :: do_thinning
    logical                         :: write_iodav1
 
-   namelist /data_nml/ nc_list_file, data_dir, data_id, sat_id, do_thinning, n_subsample, &
-                       do_superob, superob_halfwidth, write_iodav1
+   namelist /data_nml/ nc_list_file, data_dir, data_id, sat_id, n_subsample, write_iodav1
 
    real(r_kind)                    :: sdtb ! to be done
    integer(i_kind)                 :: istat
@@ -119,18 +114,6 @@ module  mod_goes_abi
    integer(i_kind),   allocatable  :: fband_id(:)
    integer(i_kind),   allocatable  :: ftime_id(:)
    integer(i_kind),   allocatable  :: julianday(:)
-
-   type converter_nml
-      character(len=256)         :: nc_list_file  !  contains a list of netcdf files to process
-      character(len=256)         :: data_dir
-      character(len=18)          :: data_id
-      character(len=3)           :: sat_id
-      integer(i_kind)            :: n_subsample
-      logical                    :: do_superob
-      logical                    :: do_thinning
-      integer(i_kind)            :: superob_halfwidth
-      logical                    :: write_iodav1
-   end type converter_nml
 
    contains
 
@@ -156,25 +139,17 @@ module  mod_goes_abi
    data_dir          = '.'
    data_id           = 'OR_ABI-L1b-RadC-M3'
    sat_id            = 'G16'
-   do_thinning       = .false.
    n_subsample       = 1
-   do_superob        = .false.
-   superob_halfwidth = 1
    !
    write_iodav1      = .false.
    !
    ! read namelist
    !
-   open(unit=nml_unit, file='namelist.goes_abi_converter', status='old', form='formatted')
+   open(unit=nml_unit, file='namelist.obs2model', status='old', form='formatted')
    read(unit=nml_unit, nml=data_nml, iostat=istat)
    write(0,nml=data_nml)
    if ( istat /= 0 ) then
-      write(0,*) 'Error reading namelist data_nml'
-      stop
-   end if
-
-   if ( istat .NE. 0 ) then
-      write(0,*) 'Error reading namelist data_nml'
+      write(0,*) 'Error reading namelist data_nml', istat
       stop
    end if
 

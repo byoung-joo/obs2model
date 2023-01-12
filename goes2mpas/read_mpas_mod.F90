@@ -15,16 +15,15 @@ module  mod_read_mpas
    contains
 
 
-   subroutine read_mpas_latlon (nC, lon, lat)
+   subroutine read_mpas_latlon (fname, nC, lon, lat)
    implicit none
+   character(len=256),        intent( in) :: fname
    integer(i_kind),           intent(out) :: nC
    real(r_kind), allocatable, intent(out) :: lon(:), lat(:) 
    ! loc
-   character(len=256) :: fname
    integer(i_kind) :: ncid, nf_status, dimid, varid
    logical :: isfile
      
-   fname = '/glade/p/mmm/parc/guerrett/pandac/fixed_input/30km/GFSAna/x1.655362.init.2018-04-15_00.00.00.nc'
    inquire(file=trim(fname), exist=isfile)
    if ( .not. isfile ) then
       write(0,*) 'File not found: '//trim(fname)
