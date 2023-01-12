@@ -232,7 +232,6 @@ module  mod_goes_abi
 
       fname = trim(data_dir)//'/'//trim(nc_fnames(ifile))
       inquire(file=trim(fname), exist=isfile)
-      write(0, *) 'BJJ, fname, ifile= '//trim(fname),ifile
       if ( .not. isfile ) then
          write(0,*) 'File not found: '//trim(fname)
          cycle file_loop1
