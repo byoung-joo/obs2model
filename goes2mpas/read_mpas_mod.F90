@@ -53,13 +53,16 @@ module  mod_read_mpas
 
    end subroutine read_mpas_latlon
 
-   subroutine write_to_mpas (nC, var)
+   subroutine write_to_mpas (fname, nC, nfield, var, varname)
    implicit none
-   integer(i_kind), intent(in) :: nC
-   real(r_kind),    intent(in) :: var(nC)
+   character(len=256), intent(in) :: fname
+   integer(i_kind),    intent(in) :: nC
+   integer(i_kind),    intent(in) :: nfield
+   real(r_kind),       intent(in) :: var(nC,nfield)
+   character(len=64),  intent(in) :: varname(nfield)
    ! loc
-   character(len=256) :: fname
    integer(i_kind) :: ncid, nf_status, dimid(2), varid
+   integer(i_kind) :: i
    logical :: isfile
      
 !----Create New File----------
@@ -84,28 +87,60 @@ module  mod_read_mpas
 !write(0,*) "nf_status.nf90_close=",nf_status
 !
 !----- add new variable to the existing file
-   fname = '/glade/scratch/bjung/interp/obs2model_alt/test_abi_read2/testwrite.nc'
-   nf_status = nf90_OPEN(trim(fname), mode=nf90_WRITE, ncid=ncid)
    inquire(file=trim(fname), exist=isfile)
    if ( .not. isfile ) then
       write(0,*) 'File not found: '//trim(fname)
       stop
    end if
-write(0,*) "nf90_open:",nf_status
+   nf_status = nf90_OPEN(trim(fname), mode=nf90_WRITE, ncid=ncid)
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_open:",nf_status; stop; end if
    nf_status = nf90_redef(ncid)
-write(0,*) "nf90_redef:",nf_status
+
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_redef:",nf_status; stop; end if
    nf_status = nf90_inq_dimid(ncid, "nCells", dimid(1))
-write(0,*) "nf90_inq_dimid1:",nf_status
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_dimid1:",nf_status;  stop; end if
    nf_status = nf90_inq_dimid(ncid, "Time", dimid(2))
-write(0,*) "nf90_inq_dimid2:",nf_status
-   nf_status = nf90_def_var(ncid, "TESTVAR",NF90_FLOAT,dimid,varid)
-write(0,*) "nf90_def_var:",nf_status
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_dimid2:",nf_status; stop; end if
+   do i=1,nfield
+      nf_status = nf90_def_var(ncid,trim(varname(i)),NF90_FLOAT,dimid,varid)
+      if ( nf_status /= 0 ) then; write(0,*) "nf90_def_var:",nf_status; stop; end if
+      select case (varname(i)(1:4))
+         case ('Rad_')
+            !float Rad_G16C13(Time, nCells) ;
+            nf_status = nf90_put_att(ncid,varid,'long_name','ABI L1b Radiances of '//varname(i)(5:10))
+            nf_status = nf90_put_att(ncid,varid,'units','mW m-2 sr-1 (cm-1)-1')
+            nf_status = nf90_put_att(ncid,varid,'_FillValue',-999.0)
+         case ('BCM_')
+            !float BCM_G16(Time, nCells) ;
+            nf_status = nf90_put_att(ncid,varid,'long_name','ABI L2+ Clear Sky Mask of '//varname(i)(5:7))
+            nf_status = nf90_put_att(ncid,varid,'description','0=clear, 1=cloudy')
+            nf_status = nf90_put_att(ncid,varid,'_FillValue',-999.0)
+         case ('TEMP')
+            !float TEMP_G16(Time, nCells) ;
+            nf_status = nf90_put_att(ncid,varid,'long_name','ABI L2+ Cloud Top Temperature of '//varname(i)(6:8))
+            nf_status = nf90_put_att(ncid,varid,'units','K')
+            nf_status = nf90_put_att(ncid,varid,'_FillValue',-999.0)
+         case ('Phas')
+            !float Phase_G16(Time, nCells) ;
+            nf_status = nf90_put_att(ncid,varid,'long_name','ABI L2+ Cloud Top Phase of '//varname(i)(7:9))
+            nf_status = nf90_put_att(ncid,varid,'description','0=clear_sky, 1=liquid_water, &
+                        2=super_cooled_liquid_water, 3=mixed_phase, 4=ice, 5=unknown')
+            nf_status = nf90_put_att(ncid,varid,'_FillValue',-999.0)
+         case default
+      end select
+   end do
    nf_status = nf90_enddef(ncid)
-write(0,*) "nf90_enddef:",nf_status
-   nf_status = nf90_put_var(ncid,varid,reshape(var, (/nC,1/)) )
-write(0,*) "nf90_put_var:",nf_status
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_enddef:",nf_status; stop; end if
+
+   do i=1,nfield
+     nf_status = nf90_inq_varid(ncid,trim(varname(i)),varid)
+     if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_varid:",nf_status; stop; end if
+     nf_status = nf90_put_var(ncid,varid,reshape(var(:,i), (/nC,1/)) )
+     if ( nf_status /= 0 ) then; write(0,*) "nf90_put_var:",nf_status; stop; end if
+   end do
+
    nf_status = nf90_close(ncid)
-write(0,*) "nf90_close:",nf_status
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_close:",nf_status; stop; end if
 
  end subroutine write_to_mpas
 

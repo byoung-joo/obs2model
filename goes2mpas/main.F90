@@ -28,6 +28,7 @@ program   main
   integer :: nS, iS  ! nS: total number of raw satellite grid
   real(sp), allocatable :: lon_s(:,:), lat_s(:,:)  ! (nx,ny) direct read from file
   real(sp), allocatable :: field_s(:,:,:)          ! (nx,ny,nfield)
+  character(len=64), allocatable :: varname_s(:)   ! (nfield)
   logical,  allocatable :: l_latlon(:,:)           ! (nx,ny)
   integer :: nS_valid ! only contains # of valid points, removing undefined and missing points.
   real(dp), allocatable :: lon_s_valid(:), lat_s_valid(:)
@@ -37,6 +38,7 @@ program   main
   integer :: nC, iC  ! nC: total number of MPAS grid
   real(sp), allocatable :: lon_mpas(:), lat_mpas(:)       ! to read. depend on the NetCDF file.
   real(dp), allocatable :: lon_mpas_dp(:), lat_mpas_dp(:) ! for kd-tree
+  real(sp), allocatable :: field_mpas(:,:)                ! interpolated field_s (nC,nfield)
  
   !kd-tree
   type(atlas_indexkdtree) :: kd
@@ -51,13 +53,15 @@ program   main
   real(dp), allocatable :: field_dist(:,:,:)
   integer :: max_pair
 
+  !BJJ fout
+  character(len=256)  :: out_fname
   
   777 format(2x,(a,2x,i4.4,a,i2.2,a,i2.2,2x,i2.2,a,i2.2,a,i2.2,/))
   call date_and_time(VALUES=tval)
   write (6, 777) 'Date-time: ',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 
   !-- read lon / lat / field for satellite     
-  call Goes_ReBroadcast_converter ( lon_s, lat_s, field_s, l_latlon )
+  call Goes_ReBroadcast_converter ( lon_s, lat_s, field_s, varname_s, l_latlon )
 !  call Goes_ReBroadcast_converter (ndim_mx, NF_mx, ndim, NF, lon_s, lat_s, field_s )
   nx    =size( field_s, dim=1 )
   ny    =size( field_s, dim=2 )
@@ -181,8 +185,9 @@ program   main
   call date_and_time(VALUES=tval)
   write (6, 777) 're-organize data done',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 
-  !-- THIS IS QUICK TEST FOR WRITE 
-  lat_mpas=-999.0
+  !BJJ allocate and initialize the field_mpas
+  allocate( field_mpas(nC,nfield) )
+  field_mpas=-999.0
 
   ! Find a SINGLE nearest point from a set of matched pairs.
   do iC= 1, nC
@@ -200,16 +205,21 @@ program   main
     end do
     !Assign !BJJ for test
     if (idx_min.ne.999) then
-      lat_mpas(iC) = field_dist(idx_min,4,iC)
+      field_mpas(iC,1:nfield) = field_dist(idx_min,1:nfield,iC)
     end if
   end do !-- nC
+  call date_and_time(VALUES=tval)
+  write (6, 777) 'Find the min. distance pairs done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 
   ! write to the existing MPAS file.
   write(6,*) "BJJ Write nC=",nC
   write(6,*) "BJJ min/max @ MPAS=",minval(lat_mpas),maxval(lat_mpas)
   write(6,*) "BJJ min/max @ SATT=", &
              minval(field_s_valid(:,1)),maxval(field_s_valid(:,1))
-  call write_to_mpas (nC, lat_mpas) !lat_mpas is temporary working array for quick test.
+  out_fname="/glade/scratch/bjung/interp/obs2model_alt/test_abi_read2/testwrite3.nc"
+  call write_to_mpas (out_fname, nC, nfield, field_mpas, varname_s) !lat_mpas is temporary working array for quick test.
+  call date_and_time(VALUES=tval)
+  write (6, 777) 'write_to_mpas done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 
 !--- match the minimum distance pairs
         !

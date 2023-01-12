@@ -135,13 +135,14 @@ module  mod_goes_abi
    contains
 
 
-   subroutine Goes_ReBroadcast_converter (glon_out, glat_out, F_out, got_latlon_out)
+   subroutine Goes_ReBroadcast_converter (glon_out, glat_out, F_out, varname_out, got_latlon_out)
 
    implicit none
-   real(r_kind), allocatable, intent(out) :: glon_out(:,:)
-   real(r_kind), allocatable, intent(out) :: glat_out(:,:)
-   real(r_kind), allocatable, intent(out) :: F_out(:,:,:)         ! (nx,ny, nfield), nfield=nfile, one file for each field
-   logical,      allocatable, intent(out) :: got_latlon_out(:,:)  ! (nx,ny)
+   real(r_kind),      allocatable, intent(out) :: glon_out(:,:)
+   real(r_kind),      allocatable, intent(out) :: glat_out(:,:)
+   real(r_kind),      allocatable, intent(out) :: F_out(:,:,:)         ! (nx,ny, nfield), nfield=nfile, one file for each field
+   character(len=64), allocatable, intent(out) :: varname_out(:)       ! (nfield)
+   logical,           allocatable, intent(out) :: got_latlon_out(:,:)  ! (nx,ny)
    ! loc
    integer :: ix
    
@@ -330,10 +331,12 @@ module  mod_goes_abi
             allocate (glat_out(nx, ny))
             allocate (glon_out(nx, ny))
             allocate (F_out(nx, ny, nfile))
+            allocate (varname_out(nfile))
             allocate (got_latlon_out(nx, ny))
             glat_out(:,:) = missing_r
             glon_out(:,:) = missing_r
             F_out(:,:,:) = missing_r
+            varname_out = ''
             write(0,*) 'Calculating lat/lon from fixed grid x/y...'
             call read_GRB_grid(ncid, nx, ny, glat, glon, gzen, got_latlon)
             call calc_solar_zenith_angle(nx, ny, glat, glon, scan_time(ifile), julianday(ifile), solzen, got_latlon)
@@ -382,6 +385,8 @@ module  mod_goes_abi
 
             !BJJ copy to output array: use ifile index
             F_out(1:nx,1:ny,ifile)=rad_2d(1:nx,1:ny)
+            !varname_out(ifile)='Rad_'//fsat_id//fband_id(ifile)
+            write(varname_out(ifile),"(A,I2.2)") 'Rad_'//fsat_id//'C', fband_id(ifile)
 
          elseif ( is_BCM(ifile) ) then
             call read_L2_BCM(ncid, nx, ny, cm_2d, time_start(it))
@@ -394,6 +399,7 @@ module  mod_goes_abi
 
             !BJJ copy to output array: use ifile index
             F_out(1:nx,1:ny,ifile)=cm_2d(1:nx,1:ny)
+            varname_out(ifile)='BCM_'//fsat_id
 
          elseif ( is_TEMP(ifile) ) then
             allocate (ctt_2d(nx, ny))   
@@ -404,6 +410,7 @@ module  mod_goes_abi
             end if
             !BJJ copy to output array: use ifile index
             F_out(1:nx,1:ny,ifile)=ctt_2d(1:nx,1:ny)
+            varname_out(ifile)='TEMP_'//fsat_id
             deallocate (ctt_2d)
             
          elseif ( is_Phase(ifile) ) then
@@ -415,6 +422,7 @@ module  mod_goes_abi
             end if
             !BJJ copy to output array: use ifile index
             F_out(1:nx,1:ny,ifile)=ctph_2d(1:nx,1:ny)
+            varname_out(ifile)='Phase_'//fsat_id
             deallocate (ctph_2d)
             
          else
