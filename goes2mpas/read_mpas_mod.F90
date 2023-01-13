@@ -143,27 +143,6 @@ module  mod_read_mpas
 
    end subroutine write_to_mpas
 
-!---
-!      call write_indx(indx_fname, nn, nS_valid, nC, interp_indx, cnt_match)
-!    call read_indx(indx_fname, nn, nS_valid, nC, interp_indx, cnt_match)
-!         nf_status = nf90_CREATE(trim(fname), cmode=NF90_NETCDF4, ncid=ncid)
-!         if ( nf_status == 0 ) then
-!            write(0,*) 'Writing '//trim(fname)
-!         end if
-!     nf_status = nf90_def_dim(ncid,"nCells",nC,dimid)
-!write(0,*) "nf_status.nf90_def_dim=",nf_status
-!     nf_status = nf90_put_att(ncid, NF90_GLOBAL, "nCells",nC)
-!write(0,*) "nf_status.nf90_put_att=",nf_status
-!     nf_status = nf90_def_var(ncid, "TESTVAR",NF90_FLOAT,dimid,varid)
-!write(0,*) "nf_status.nf90_def_var=",nf_status
-!     nf_status = nf90_def_var_fill(ncid, varid, 0, -999.0)
-!write(0,*) "nf_status.nf90_def_var_fill=",nf_status
-!     nf_status = nf90_inq_varid(ncid, "TESTVAR",varid)
-!write(0,*) "nf_status.nf90_inq_varid=",nf_status
-!     nf_status = nf90_put_var(ncid,varid,var)
-!write(0,*) "nf_status.nf90_put_var=",nf_status
-!     nf_status = nf90_close(ncid)
-!write(0,*) "nf_status.nf90_close=",nf_status
 
    subroutine write_indx (fname, nn, nS_valid, nC, interp_indx, cnt_match)
    implicit none

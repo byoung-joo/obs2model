@@ -26,13 +26,13 @@ program   main
   character(len=64), allocatable :: varname_s(:)   ! (nfield)
   logical,  allocatable :: l_latlon(:,:)           ! (nx,ny)
   integer :: nS_valid ! only contains # of valid points, removing undefined and missing points.
-  real(dp), allocatable :: lon_s_valid(:), lat_s_valid(:)
-  real(dp), allocatable :: field_s_valid(:,:)
+  real(dp), allocatable :: lon_s_valid(:), lat_s_valid(:)  !double precision to work with kd-tree
+  real(sp), allocatable :: field_s_valid(:,:)
 
   !mpas lat/lon and interpolated field
   integer :: nC, iC  ! nC: total number of MPAS grid
   real(sp), allocatable :: lon_mpas(:), lat_mpas(:)       ! to read. depend on the NetCDF file.
-  real(dp), allocatable :: lon_mpas_dp(:), lat_mpas_dp(:) ! for kd-tree
+  real(dp), allocatable :: lon_mpas_dp(:), lat_mpas_dp(:) ! double precision for kd-tree
   real(sp), allocatable :: field_mpas(:,:)                ! interpolated field_s (nC,nfield)
  
   !kd-tree
@@ -46,7 +46,8 @@ program   main
   integer :: idx_min
   !BJJ Count # of matching for a given MPAS cell
   integer, allocatable :: cnt_match(:)
-  real(dp), allocatable :: field_dist(:,:,:)
+  real(dp), allocatable :: lat_s_dist(:,:), lon_s_dist(:,:) !for re-organize
+  real(sp), allocatable :: field_s_dist(:,:,:)
   integer :: max_pair
 
   !BJJ namelist for nml_main
@@ -195,17 +196,20 @@ program   main
 
   !----- 4. re-organize the matching pairs -------------------------------------
   ! distribute the matched pairs (re-organize)
-  allocate(field_dist(max_pair,nfield+2,nC))  ! [1:nfield] for fields; nfield+1 for lon; nfield+2 for lat
-  field_dist(:,:,:)=-999.0 !init
+  allocate(lon_s_dist(max_pair,nC))
+  allocate(lat_s_dist(max_pair,nC))
+  allocate(field_s_dist(max_pair,nfield,nC))
+  lon_s_dist(:,:)    =-999.0 !init
+  lat_s_dist(:,:)    =-999.0 !init
+  field_s_dist(:,:,:)=-999.0 !init
   cnt_match(:)=0 !init
 
   do iS= 1, nS_valid
     ix=interp_indx(1,iS)
     cnt_match(ix)=cnt_match(ix)+1
-    field_dist(cnt_match(ix),1:nfield,ix)=field_s_valid(iS,1:nfield)
-    field_dist(cnt_match(ix),nfield+1,ix)=lon_s_valid(iS)*deg2rad  !pass as [radian] to make the next step [dist] easier.
-    field_dist(cnt_match(ix),nfield+2,ix)=lat_s_valid(iS)*deg2rad
-    !BJJ as write test
+    lon_s_dist(cnt_match(ix),ix)=lon_s_valid(iS)*deg2rad  !pass as [radian] to make the next step [dist] easier.
+    lat_s_dist(cnt_match(ix),ix)=lat_s_valid(iS)*deg2rad
+    field_s_dist(cnt_match(ix),1:nfield,ix)=field_s_valid(iS,1:nfield)
   enddo
   call date_and_time(VALUES=tval)
   write (6, 777) 're-organize data done',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
@@ -229,8 +233,7 @@ program   main
     do iS = 1, cnt_match(iC)
       ! measure a distance between Satellite point and MPAS point,
       ! then, find closest pair
-      dist = ageometry%distance(lon_mpas_dp(iC),lat_mpas_dp(iC), &
-             field_dist(iS,nfield+1,iC),field_dist(iS,nfield+2,iC))
+      dist = ageometry%distance(lon_mpas_dp(iC),lat_mpas_dp(iC),lon_s_dist(iS,iC),lat_s_dist(iS,iC))
       if (dist .lt. dist_min) then ! update
          dist_min=dist
          idx_min=iS
@@ -238,7 +241,7 @@ program   main
     end do
     ! assign
     if (idx_min.ne.999) then
-      field_mpas(iC,1:nfield) = field_dist(idx_min,1:nfield,iC)
+      field_mpas(iC,1:nfield) = field_s_dist(idx_min,1:nfield,iC)
     end if
   end do !-- nC
   call date_and_time(VALUES=tval)
@@ -246,7 +249,9 @@ program   main
 
   ! deallocate
   deallocate(cnt_match)
-  deallocate(field_dist)
+  deallocate(lon_s_dist)
+  deallocate(lat_s_dist)
+  deallocate(field_s_dist)
 
 
   !----- 6. Write the fields to MPAS file---------------------------------------
