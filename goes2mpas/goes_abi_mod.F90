@@ -28,17 +28,20 @@ module  mod_goes_abi
       def_netcdf_dims, def_netcdf_var, def_netcdf_end, &
       put_netcdf_var, missing_r
 
+   use control_para !BJJ
+
    implicit none
    include 'netcdf.inc'
 
-   integer, parameter  :: r_single = selected_real_kind(6)  ! single precision
-   integer, parameter  :: r_double = selected_real_kind(15) ! double precision
-   integer, parameter  :: i_byte   = selected_int_kind(1)   ! byte integer
-   integer, parameter  :: i_short  = selected_int_kind(4)   ! short integer
-   integer, parameter  :: i_long   = selected_int_kind(8)   ! long integer
-   integer, parameter  :: i_kind   = i_long                 ! default integer
-   integer, parameter  :: r_kind   = r_single               ! default real
-!BJJ   integer, parameter  :: r_kind   = r_double               ! default real
+   !BJJ moved to control_para module
+!   integer, parameter  :: r_single = selected_real_kind(6)  ! single precision
+!   integer, parameter  :: r_double = selected_real_kind(15) ! double precision
+!   integer, parameter  :: i_byte   = selected_int_kind(1)   ! byte integer
+!   integer, parameter  :: i_short  = selected_int_kind(4)   ! short integer
+!   integer, parameter  :: i_long   = selected_int_kind(8)   ! long integer
+!   integer, parameter  :: i_kind   = i_long                 ! default integer
+!   integer, parameter  :: r_kind   = r_single               ! default real
+!!BJJ   integer, parameter  :: r_kind   = r_double               ! default real
 
    ! prefix of Clear Sky Mask (Binary Cloud Mask) output of cspp-geo-aitf package
    character(len=14), parameter :: BCM_id   = 'OR_ABI-L2-ACMF'
@@ -49,7 +52,7 @@ module  mod_goes_abi
    integer(i_kind) :: band_start = 7
    integer(i_kind) :: band_end   = 16
 
-   real(r_kind) :: pi, deg2rad, rad2deg
+   !real(r_kind) :: pi, deg2rad, rad2deg !BJJ moved to control_para module
 
    logical, allocatable :: got_latlon(:,:)
    real(r_kind), allocatable :: glat(:,:)    ! grid latitude (nx,ny)
@@ -129,9 +132,9 @@ module  mod_goes_abi
    ! loc
    integer :: ix
    
-   pi = acos(-1.0)
-   deg2rad = pi/180.0
-   rad2deg = 1.0/deg2rad
+   !pi = acos(-1.0)
+   !deg2rad = pi/180.0
+   !rad2deg = 1.0/deg2rad
    !
    ! initialize namelist variables
    !
@@ -1255,8 +1258,8 @@ subroutine calc_solar_zenith_angle(nx, ny, xlat, xlon, xtime, julian, solzen, go
          solzen(i,j) = acos( sin(rlat)*sin(declin) + &
                              cos(rlat)*cos(declin)*cos(hrang) )
          solzen(i,j) = solzen(i,j) * rad2deg
-      enddo
-   enddo
+      end do
+   end do
 
    return
 end subroutine calc_solar_zenith_angle
@@ -1271,7 +1274,7 @@ end subroutine calc_solar_zenith_angle
     if(errcode /= nf90_noerr) then
        print *, 'Error: ', trim(nf90_strerror(errcode))
        stop 2
-    endif
+    end if
   end subroutine check
 
  end module mod_goes_abi
