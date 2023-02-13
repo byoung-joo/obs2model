@@ -57,44 +57,42 @@ module  mod_read_write_mpas
    ! loc
    integer(i_kind) :: ncid, nf_status, dimid(2), varid
    integer(i_kind) :: i
-   logical :: isfile
+   logical :: isfile, l_newfile
      
-!----Create New File----------
-!   fname = '/glade/scratch/bjung/interp/obs2model_alt/test_abi_read/testwrite2.nc'
-!         nf_status = nf90_CREATE(trim(fname), cmode=NF90_NETCDF4, ncid=ncid)
-!         if ( nf_status == 0 ) then
-!            write(0,*) 'Writing '//trim(fname)
-!         end if
-!     nf_status = nf90_def_dim(ncid,"nCells",nC,dimid)
-!write(0,*) "nf_status.nf90_def_dim=",nf_status
-!     nf_status = nf90_put_att(ncid, NF90_GLOBAL, "nCells",nC)
-!write(0,*) "nf_status.nf90_put_att=",nf_status
-!     nf_status = nf90_def_var(ncid, "TESTVAR",NF90_FLOAT,dimid,varid)
-!write(0,*) "nf_status.nf90_def_var=",nf_status
-!     nf_status = nf90_def_var_fill(ncid, varid, 0, -999.0)
-!write(0,*) "nf_status.nf90_def_var_fill=",nf_status
-!     nf_status = nf90_inq_varid(ncid, "TESTVAR",varid)
-!write(0,*) "nf_status.nf90_inq_varid=",nf_status
-!     nf_status = nf90_put_var(ncid,varid,var)
-!write(0,*) "nf_status.nf90_put_var=",nf_status
-!     nf_status = nf90_close(ncid)
-!write(0,*) "nf_status.nf90_close=",nf_status
-!
-!----- add new variable to the existing file
-   inquire(file=trim(fname), exist=isfile)
-   if ( .not. isfile ) then
-      write(0,*) 'File not found: '//trim(fname)
-      stop
-   end if
-   nf_status = nf90_OPEN(trim(fname), mode=nf90_WRITE, ncid=ncid)
-   if ( nf_status /= 0 ) then; write(0,*) "nf90_open:",nf_status; stop; end if
-   nf_status = nf90_redef(ncid)
+   l_newfile=.true. !BJJ Set as default for now.
 
-   if ( nf_status /= 0 ) then; write(0,*) "nf90_redef:",nf_status; stop; end if
-   nf_status = nf90_inq_dimid(ncid, "nCells", dimid(1))
-   if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_dimid1:",nf_status;  stop; end if
-   nf_status = nf90_inq_dimid(ncid, "Time", dimid(2))
-   if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_dimid2:",nf_status; stop; end if
+   if ( l_newfile ) then
+   !----Create New File----------
+      nf_status = nf90_CREATE(trim(fname), cmode=NF90_NETCDF4, ncid=ncid)
+      if ( nf_status == 0 ) then
+         write(0,*) 'Writing '//trim(fname)
+      else
+         write(0,*) "nf90_create:",nf_status
+         stop
+      end if
+      nf_status = nf90_def_dim(ncid,"nCells",nC,dimid(1))
+      if ( nf_status /= 0 ) then; write(0,*) "nf90_def_dim:nCells:",nf_status; stop; end if
+      nf_status = nf90_def_dim(ncid,"Time",NF90_UNLIMITED,dimid(2))
+      if ( nf_status /= 0 ) then; write(0,*) "nf90_def_dim:Time:",nf_status; stop; end if
+   else
+   !----- add new variable to the existing file
+      inquire(file=trim(fname), exist=isfile)
+      if ( .not. isfile ) then
+         write(0,*) 'File not found: '//trim(fname)
+         stop
+      end if
+      nf_status = nf90_OPEN(trim(fname), mode=nf90_WRITE, ncid=ncid)
+      if ( nf_status /= 0 ) then; write(0,*) "nf90_open:",nf_status; stop; end if
+      nf_status = nf90_redef(ncid)
+
+      if ( nf_status /= 0 ) then; write(0,*) "nf90_redef:",nf_status; stop; end if
+      nf_status = nf90_inq_dimid(ncid, "nCells", dimid(1))
+      if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_dimid1:",nf_status;  stop; end if
+      nf_status = nf90_inq_dimid(ncid, "Time", dimid(2))
+      if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_dimid2:",nf_status; stop; end if
+   end if
+
+   !----- applicable to both new & existing file
    do i=1,nfield
       nf_status = nf90_def_var(ncid,trim(varname(i)),NF90_FLOAT,dimid,varid)
       if ( nf_status /= 0 ) then; write(0,*) "nf90_def_var:",nf_status; stop; end if
