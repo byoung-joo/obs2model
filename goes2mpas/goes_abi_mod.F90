@@ -362,9 +362,10 @@ module  mod_goes_abi
 
             !BJJ copy to output array: use ifile index
             !F_out(1:nx,1:ny,ifile)=rad_2d(1:nx,1:ny)  !Radiance
+            !!varname_out(ifile)='Rad_'//fsat_id//fband_id(ifile)
+            !write(varname_out(ifile),"(A,I2.2)") 'Rad_'//fsat_id//'C', fband_id(ifile)
             F_out(1:nx,1:ny,ifile)=bt_2d(1:nx,1:ny)  !Brightness Temperature
-            !varname_out(ifile)='Rad_'//fsat_id//fband_id(ifile)
-            write(varname_out(ifile),"(A,I2.2)") 'Rad_'//fsat_id//'C', fband_id(ifile)
+            write(varname_out(ifile),"(A,I2.2)") 'BT_'//fsat_id//'C', fband_id(ifile)
 
          elseif ( is_BCM(ifile) ) then
             call read_L2_BCM(ncid, nx, ny, cm_2d, time_start(it))
