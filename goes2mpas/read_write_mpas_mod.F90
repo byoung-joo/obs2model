@@ -96,23 +96,28 @@ module  mod_read_write_mpas
    do i=1,nfield
       nf_status = nf90_def_var(ncid,trim(varname(i)),NF90_FLOAT,dimid,varid)
       if ( nf_status /= 0 ) then; write(0,*) "nf90_def_var:",nf_status; stop; end if
-      select case (varname(i)(1:4))
-         case ('Rad_')
+      select case (varname(i)(1:3))
+         case ('BT_')
+            !float BT_G16C13(Time, nCells) ;
+            nf_status = nf90_put_att(ncid,varid,'long_name','ABI L1b Brightness Temperature of '//varname(i)(4:9))
+            nf_status = nf90_put_att(ncid,varid,'units','K')
+            nf_status = nf90_put_att(ncid,varid,'_FillValue',-999.0)
+         case ('Rad')
             !float Rad_G16C13(Time, nCells) ;
             nf_status = nf90_put_att(ncid,varid,'long_name','ABI L1b Radiances of '//varname(i)(5:10))
             nf_status = nf90_put_att(ncid,varid,'units','mW m-2 sr-1 (cm-1)-1')
             nf_status = nf90_put_att(ncid,varid,'_FillValue',-999.0)
-         case ('BCM_')
+         case ('BCM')
             !float BCM_G16(Time, nCells) ;
             nf_status = nf90_put_att(ncid,varid,'long_name','ABI L2+ Clear Sky Mask of '//varname(i)(5:7))
             nf_status = nf90_put_att(ncid,varid,'description','0=clear, 1=cloudy')
             nf_status = nf90_put_att(ncid,varid,'_FillValue',-999.0)
-         case ('TEMP')
+         case ('TEM')
             !float TEMP_G16(Time, nCells) ;
             nf_status = nf90_put_att(ncid,varid,'long_name','ABI L2+ Cloud Top Temperature of '//varname(i)(6:8))
             nf_status = nf90_put_att(ncid,varid,'units','K')
             nf_status = nf90_put_att(ncid,varid,'_FillValue',-999.0)
-         case ('Phas')
+         case ('Pha')
             !float Phase_G16(Time, nCells) ;
             nf_status = nf90_put_att(ncid,varid,'long_name','ABI L2+ Cloud Top Phase of '//varname(i)(7:9))
             nf_status = nf90_put_att(ncid,varid,'description','0=clear_sky, 1=liquid_water, &
