@@ -63,7 +63,9 @@ module  mod_read_write_mpas
 
    if ( l_newfile ) then
    !----Create New File----------
-      nf_status = nf90_CREATE(trim(fname), cmode=NF90_NETCDF4, ncid=ncid)
+      !BJJ https://docs.unidata.ucar.edu/netcdf-fortran/current/f90_datasets.html#f90-nf90_create
+      !nf_status = nf90_CREATE(trim(fname), cmode=NF90_NETCDF4, ncid=ncid)
+      nf_status = nf90_CREATE(trim(fname), cmode=NF90_64BIT_OFFSET, ncid=ncid) !to make compatible with MPAS-Model NetCDF files
       if ( nf_status == 0 ) then
          write(0,*) 'Writing '//trim(fname)
       else
