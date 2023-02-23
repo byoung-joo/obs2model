@@ -49,5 +49,3 @@ namelist.obs2model
 &data_nml
   This section is the same as https://github.com/jamiebresch/obs2ioda
 ```
-
-```
