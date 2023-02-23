@@ -81,7 +81,7 @@ program  main
    close(unit=nml_unit)
 
 
-   !----- 1. read ABI -----------------------------------------------------------
+   !----- 1. read ABI latlon & data ---------------------------------------------
    ! read lon / lat / field for satellite     
    call Goes_ReBroadcast_converter ( lon_s, lat_s, field_s, varname_s, l_latlon )
    nx     = size(field_s, dim=1)
@@ -122,7 +122,7 @@ program  main
    if(icnt .ne. nS_valid) STOP 777 ! sanity check
 
 
-   !----- 3. read MPAS ----------------------------------------------------------
+   !----- 3. read MPAS lat/lon --------------------------------------------------
    ! read lon / lat from MPAS file
    call read_mpas_latlon (f_mpas_latlon, nC, lon_mpas, lat_mpas)  ! unit [radian], single precision
    lon_mpas_dp=lon_mpas ! pass double precision for kd-tree
@@ -254,7 +254,7 @@ program  main
    deallocate(field_s_dist)
 
 
-   !----- 6. Write the fields to MPAS file---------------------------------------
+   !----- 6. Write the interpolated fields to MPAS file--------------------------
    ! write to the existing MPAS file.
    call write_to_mpas (f_mpas_out, nC, nfield, field_mpas, varname_s)
    call date_and_time(VALUES=tval)
