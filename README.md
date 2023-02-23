@@ -32,3 +32,19 @@ main.F90
    !----- 4. re-organize the matching pairs -------------------------------------
    !----- 5. find the neasest pair ----------------------------------------------
    !----- 6. Write the interpolated fields to MPAS file--------------------------
+
+
+namelist.obs2model
+------------------
+```
+&main_nml
+  f_mpas_latlon = '' , ! MPAS file path/name to read lat & lon information
+  f_mpas_out    = '' , ! MPAS file for writing the interpolated ABI fields
+  l_read_indx   = .true. or .false.,   ! read index and counnt for matching ABI-MPAS pairs
+  l_write_indx  = .true. or .false.,   ! write index and counnt for matching ABI-MPAS pairs
+
+&data_nml
+  This section is the same as https://github.com/jamiebresch/obs2ioda
+```
+
+```
