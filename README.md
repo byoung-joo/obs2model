@@ -25,14 +25,16 @@ cd ../test_abi_read
 
 goes2mpas
 ---------
+```
 main.F90
-   !----- 0. read namelist ------------------------------------------------------
-   !----- 1. read ABI lat/lon & data --------------------------------------------
-   !----- 3. read MPAS lat/lon --------------------------------------------------
-   !----- 3. build and search kd-tree -------------------------------------------
-   !----- 4. re-organize the matching pairs -------------------------------------
-   !----- 5. find the neasest pair ----------------------------------------------
-   !----- 6. Write the interpolated fields to MPAS file--------------------------
+   - 0. read namelist
+   - 1. read ABI lat/lon & data
+   - 3. read MPAS lat/lon
+   - 3. build and search kd-tree
+   - 4. re-organize the matching pairs
+   - 5. find the neasest pair
+   - 6. Write the interpolated fields to MPAS file
+```
 
 
 namelist.obs2model
