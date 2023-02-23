@@ -13,6 +13,7 @@ Aim
 
 To build and run
 ----------------
+```
 source mpas-jedi environment
 git clone https://github.com/byoung-joo/obs2model.git
 cd obs2model
@@ -20,7 +21,7 @@ mkdir build; cd build
 cmake ../ ; make -j4
 cd ../test_abi_read
 ./goes2mpas.x
-
+```
 
 goes2mpas
 ---------
