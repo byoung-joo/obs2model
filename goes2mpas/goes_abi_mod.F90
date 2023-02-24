@@ -24,32 +24,35 @@ module  mod_goes_abi
 !          n_subsample = 1
 !        /
 
-   use goes_R_para
    use netcdf_mod, only: open_netcdf_for_write, close_netcdf, &
       def_netcdf_dims, def_netcdf_var, def_netcdf_end, &
       put_netcdf_var, missing_r
-   use control_para, only: pi
+
+   use control_para !BJJ
 
    implicit none
    include 'netcdf.inc'
 
-   integer, parameter  :: r_single = selected_real_kind(6)  ! single precision
-   integer, parameter  :: r_double = selected_real_kind(15) ! double precision
-   integer, parameter  :: i_byte   = selected_int_kind(1)   ! byte integer
-   integer, parameter  :: i_short  = selected_int_kind(4)   ! short integer
-   ! integer, parameter  :: i_long   = selected_int_kind(8)   ! long integer  exist in setvar.F90
-   integer, parameter  :: i_kind   = i_long                 ! default integer
-   !   integer, parameter  :: r_kind   = r_single               ! default real
-   integer, parameter  :: r_kind   = r_double               ! default real
+   !BJJ moved to control_para module
+!   integer, parameter  :: r_single = selected_real_kind(6)  ! single precision
+!   integer, parameter  :: r_double = selected_real_kind(15) ! double precision
+!   integer, parameter  :: i_byte   = selected_int_kind(1)   ! byte integer
+!   integer, parameter  :: i_short  = selected_int_kind(4)   ! short integer
+!   integer, parameter  :: i_long   = selected_int_kind(8)   ! long integer
+!   integer, parameter  :: i_kind   = i_long                 ! default integer
+!   integer, parameter  :: r_kind   = r_single               ! default real
+!!BJJ   integer, parameter  :: r_kind   = r_double               ! default real
 
    ! prefix of Clear Sky Mask (Binary Cloud Mask) output of cspp-geo-aitf package
-   character(len=14), parameter :: BCM_id = 'CG_ABI-L2-ACMC'
+   character(len=14), parameter :: BCM_id   = 'OR_ABI-L2-ACMF'
+   character(len=15), parameter :: TEMP_id  = 'OR_ABI-L2-ACHTF'
+   character(len=15), parameter :: Phase_id = 'OR_ABI-L2-ACTPF'
 
    integer(i_kind), parameter :: nband      = 10  ! IR bands 7-16
    integer(i_kind) :: band_start = 7
    integer(i_kind) :: band_end   = 16
 
-   real(r_kind) :: deg2rad, rad2deg
+   !real(r_kind) :: pi, deg2rad, rad2deg !BJJ moved to control_para module
 
    logical, allocatable :: got_latlon(:,:)
    real(r_kind), allocatable :: glat(:,:)    ! grid latitude (nx,ny)
@@ -63,6 +66,8 @@ module  mod_goes_abi
             ! qf (DQF, Data Quality Flag)
             ! 0:good, 1:conditionally_usable, 2:out_of_range, 3:no_value
    integer(i_kind), allocatable :: cm_2d(:,:)   ! cloud_mask(nx,ny)
+   real(r_kind),    allocatable :: ctt_2d(:,:)  ! cloud top temperature(nx,ny) !BJJ
+   real(r_kind),    allocatable :: ctph_2d(:,:) ! cloud top phase(nx,ny) !BJJ
 
    type rad_type
       real(r_kind),    allocatable :: rad(:,:,:)  ! radiance(nband,nx,ny)
@@ -84,9 +89,7 @@ module  mod_goes_abi
 
    integer(i_kind)      :: nml_unit = 81
    integer(i_kind)      :: iunit    = 87
-   integer :: uop = 7   ! output unit
    
-!-- variables to be overwritten by converter_nml
    character(len=256)              :: nc_list_file  ! the text file that contains a list of netcdf files to process
    character(len=256)              :: data_dir
    character(len=18)               :: data_id
@@ -94,13 +97,15 @@ module  mod_goes_abi
    integer(i_kind)                 :: n_subsample
    logical                         :: write_iodav1
 
+   namelist /data_nml/ nc_list_file, data_dir, data_id, sat_id, n_subsample, write_iodav1
+
    real(r_kind)                    :: sdtb ! to be done
    integer(i_kind)                 :: istat
    integer(i_kind)                 :: nfile, ifile, nlen
    logical                         :: isfile
    logical                         :: found_time
    logical                         :: got_grid_info
-   logical, allocatable            :: valid(:), is_BCM(:)
+   logical, allocatable            :: valid(:), is_BCM(:), is_TEMP(:), is_Phase(:)
    character(len=256), allocatable :: nc_fnames(:)
    character(len=256)              :: fname
    character(len=256)              :: out_fname
@@ -112,89 +117,89 @@ module  mod_goes_abi
    integer(i_kind),   allocatable  :: fband_id(:)
    integer(i_kind),   allocatable  :: ftime_id(:)
    integer(i_kind),   allocatable  :: julianday(:)
+
    contains
 
 
-   subroutine Goes_ReBroadcast_converter (nml_input, ndim_mx, NF_mx, N, NF, lon, lat, F)
-     implicit none
-     type (converter_nml), intent(in) :: nml_input
-     integer, intent(in)  :: ndim_mx, NF_mx
-     integer, intent(out) :: NF     ! nfield
-     integer, intent(out) :: N      ! ndim: grid-point
-     real(r_kind), intent(out) :: lon(ndim_mx), lat(ndim_mx)  ! 
-     real(r_kind), intent(out) :: F(ndim_mx, NF_mx)           ! field
-     ! loc
-     integer :: ix
-     
-     ! YGYU add
-     NF=2; N=1    ! 2 vars: (rad,cm), N=nx*ny after reading sat.
-     lon=0.0; lat=0.0; F=0.0
-     
-     deg2rad = pi/180.0
-     rad2deg = 1.0/deg2rad
-     !
-     ! initialize namelist variables
-     !
-     nc_list_file   = nml_input%nc_list_file   ! 'flist.txt'
-     data_dir       = nml_input%data_dir       ! '.'
-     data_id        = nml_input%data_id        ! 'OR_ABI-L1b-RadC-M3'
-     sat_id         = nml_input%sat_id         ! 'G16'
-     n_subsample    = nml_input%n_subsample    ! 1
-     write_iodav1   = .false.
-     !write_iodav1   = .true.
+   subroutine Goes_ReBroadcast_converter (glon_out, glat_out, F_out, varname_out, got_latlon_out)
 
-     !     write(6, nml_input)
-     write(6, *) nml_input
-
-     if ( istat .NE. 0 ) then
-        write(uop,*) 'Error reading namelist data_nml'
-        stop
-     end if
-     write(6,*)
-     
-     ! get file names from nc_list_file
-     nfile  = 0  ! initialize the number of netcdf files to read
-     inquire(file=trim(nc_list_file), exist=isfile)
-     if ( .not. isfile ) then
-        write(uop,*) 'File not found: nc_list_file '//trim(nc_list_file)
-        stop 1
-     else
-        open(unit=iunit, file=trim(nc_list_file), status='old', form='formatted')
-        !first find out the number of netcdf files to read
-        istat = 0
-        do while ( istat == 0 )
-           read(unit=iunit, fmt='(a)', iostat=istat) txtbuf
-           if ( istat /= 0 ) then
-              exit
-           else
-              nfile = nfile + 1
-           end if
-        end do
-        if ( nfile > 0 ) then
-           allocate (nc_fnames(nfile))
-           !read the nc_list_file again to get the netcdf file names
-           rewind(iunit)
-           do ifile = 1, nfile
-              read(unit=iunit, fmt='(a)', iostat=istat) nc_fnames(ifile)
-              write(6, 101) trim(nc_fnames(ifile))
-           end do
-        else
-           write(uop,*) 'File not found from nc_list_file '//trim(nc_list_file)
-           stop
-        end if
-        close(iunit)
-     end if !nc_list_file
-
-     IF(nfile.GT.1) STOP 'nfile.NE.1, wrong!'
+   implicit none
+   real(r_kind),      allocatable, intent(out) :: glon_out(:,:)
+   real(r_kind),      allocatable, intent(out) :: glat_out(:,:)
+   real(r_kind),      allocatable, intent(out) :: F_out(:,:,:)         ! (nx,ny, nfield), nfield=nfile, one file for each field
+   character(len=64), allocatable, intent(out) :: varname_out(:)       ! (nfield)
+   logical,           allocatable, intent(out) :: got_latlon_out(:,:)  ! (nx,ny)
+   ! loc
+   integer :: ix
    
+   !pi = acos(-1.0)
+   !deg2rad = pi/180.0
+   !rad2deg = 1.0/deg2rad
+   !
+   ! initialize namelist variables
+   !
+   nc_list_file      = 'flist.txt'
+   data_dir          = '.'
+   data_id           = 'OR_ABI-L1b-RadC-M3'
+   sat_id            = 'G16'
+   n_subsample       = 1
+   !
+   write_iodav1      = .false.
+   !
+   ! read namelist
+   !
+   open(unit=nml_unit, file='namelist.obs2model', status='old', form='formatted')
+   read(unit=nml_unit, nml=data_nml, iostat=istat)
+   write(0,nml=data_nml)
+   if ( istat /= 0 ) then
+      write(0,*) 'Error reading namelist data_nml', istat
+      stop
+   end if
+
+   ! get file names from nc_list_file
+   nfile  = 0  ! initialize the number of netcdf files to read
+   inquire(file=trim(nc_list_file), exist=isfile)
+   if ( .not. isfile ) then
+      write(0,*) 'File not found: nc_list_file '//trim(nc_list_file)
+      stop 1
+   else
+      open(unit=iunit, file=trim(nc_list_file), status='old', form='formatted')
+      !first find out the number of netcdf files to read
+      istat = 0
+      do while ( istat == 0 )
+         read(unit=iunit, fmt='(a)', iostat=istat) txtbuf
+         if ( istat /= 0 ) then
+            exit
+         else
+            nfile = nfile + 1
+         end if
+      end do
+      if ( nfile > 0 ) then
+         allocate (nc_fnames(nfile))
+         !read the nc_list_file again to get the netcdf file names
+         rewind(iunit)
+         do ifile = 1, nfile
+            read(unit=iunit, fmt='(a)', iostat=istat) nc_fnames(ifile)
+         end do
+      else
+         write(0,*) 'File not found from nc_list_file '//trim(nc_list_file)
+         stop
+      end if
+      close(iunit)
+   end if !nc_list_file
+
    allocate (ftime_id(nfile))
    allocate (scan_time(nfile))
    allocate (julianday(nfile))
    allocate (fband_id(nfile))
    allocate (valid(nfile))
    allocate (is_BCM(nfile))
+   allocate (is_TEMP(nfile)) !BJJ
+   allocate (is_Phase(nfile)) !BJJ
    valid( :) = .false.
    is_BCM(:) = .false.
+   is_TEMP(:) = .false.
+   is_Phase(:) = .false.
 
    nlen = len_trim(data_id)
    mode_id = data_id(nlen-1:nlen)
@@ -205,19 +210,17 @@ module  mod_goes_abi
 
       fname = trim(data_dir)//'/'//trim(nc_fnames(ifile))
       inquire(file=trim(fname), exist=isfile)
-      write(6, 101) 'fname= '//trim(fname)
       if ( .not. isfile ) then
-         write(uop,*) 'File not found: '//trim(fname)
+         write(0,*) 'File not found: '//trim(fname)
          cycle file_loop1
       else
-         write(6,*) 'File found: '//trim(fname)         
+         write(0,*) 'File found: '//trim(fname)         
       end if
 
       ! retrieve some basic info from the netcdf filename itself
-      call decode_nc_fname(trim(nc_fnames(ifile)),finfo, scan_mode, is_BCM(ifile), &
+      call decode_nc_fname(trim(nc_fnames(ifile)),finfo, scan_mode, &
+         is_BCM(ifile), is_TEMP(ifile), is_Phase(ifile), &
          fband_id(ifile), fsat_id, scan_time(ifile), julianday(ifile))
-
-
 
       ! all files must be the same mode
       if ( scan_mode /= mode_id ) then
@@ -228,7 +231,7 @@ module  mod_goes_abi
          cycle file_loop1
       end if
 
-      if ( .not. is_BCM(ifile) ) then
+      if ( .not. ( is_BCM(ifile) .or. is_TEMP(ifile) .or. is_Phase(ifile) ) ) then
          ! id of the file name must match specified data_id
          if ( finfo /= data_id ) then
             cycle file_loop1
@@ -267,10 +270,9 @@ module  mod_goes_abi
       
    end do file_loop1
 
-   write(6,121) 'ntime = ', ntime
    if ( ntime <= 0 ) then
-      write(uop,*) 'ntime = ', ntime
-      write(uop,*) 'No valid files found from nc_list_file '//trim(nc_list_file)
+      write(0,*) 'ntime = ', ntime
+      write(0,*) 'No valid files found from nc_list_file '//trim(nc_list_file)
       stop
    end if
 
@@ -283,19 +285,14 @@ module  mod_goes_abi
       if ( valid(ifile) ) then
 
          fname = trim(data_dir)//'/'//trim(nc_fnames(ifile))
-         !!call check(nf90_open(fname, NF90_NOWRITE, fh))
-
-         write(6, 101)  'ck 1'
          nf_status = nf_OPEN(trim(fname), nf_NOWRITE, ncid)
          if ( nf_status == 0 ) then
-            write(uop,*) 'Reading '//trim(fname)
+            write(0,*) 'Reading '//trim(fname)
          else
-            write(uop,*) 'ERROR reading '//trim(fname)
+            write(0,*) 'ERROR reading '//trim(fname)
             cycle file_loop2
          end if
 
-         write(6, 101)  'ck 2'
-         
          if ( .not. got_grid_info ) then
             call read_GRB_dims(ncid, nx, ny)
             allocate (glat(nx, ny))
@@ -307,9 +304,23 @@ module  mod_goes_abi
             glon(:,:) = missing_r
             gzen(:,:) = missing_r
             solzen(:,:) = missing_r
-            write(uop,*) 'Calculating lat/lon from fixed grid x/y...'
+            !BJJ allocate output arrays
+            allocate (glat_out(nx, ny))
+            allocate (glon_out(nx, ny))
+            allocate (F_out(nx, ny, nfile))
+            allocate (varname_out(nfile))
+            allocate (got_latlon_out(nx, ny))
+            glat_out(:,:) = missing_r
+            glon_out(:,:) = missing_r
+            F_out(:,:,:) = missing_r
+            varname_out = ''
+            write(0,*) 'Calculating lat/lon from fixed grid x/y...'
             call read_GRB_grid(ncid, nx, ny, glat, glon, gzen, got_latlon)
             call calc_solar_zenith_angle(nx, ny, glat, glon, scan_time(ifile), julianday(ifile), solzen, got_latlon)
+            !BJJ copy to output array
+            glat_out(:,:)=glat(:,:)
+            glon_out(:,:)=glon(:,:)
+            got_latlon_out(:,:)=got_latlon(:,:)
             got_grid_info = .true.
             allocate (rad_2d(nx, ny))
             allocate (bt_2d(nx, ny))
@@ -317,24 +328,20 @@ module  mod_goes_abi
             allocate (cm_2d(nx, ny))   
          end if
 
-         write(6, 101)  'ck 3'         
-
          it = ftime_id(ifile)
          ib = fband_id(ifile)
 
-         write(6, 101)  'ck 4'
-
-         if ( .not. is_BCM(ifile) ) then
+         if ( .not. ( is_BCM(ifile) .or. is_TEMP(ifile) .or. is_Phase(ifile) ) ) then
 
             call read_GRB(ncid, nx, ny, rad_2d, bt_2d, qf_2d, sdtb, band_id, time_start(it))
 
             if ( band_id /= ib ) then
-               write(uop,*) 'ERROR: band_id from the file name and the file content do not match.'
+               write(0,*) 'ERROR: band_id from the file name and the file content do not match.'
                cycle file_loop2
             end if
 
             if ( time_start(it) /= scan_time(ifile) ) then
-               write(uop,*) 'ERROR: scan start time from the file name and the file content do not match.'
+               write(0,*) 'ERROR: scan start time from the file name and the file content do not match.'
                cycle file_loop2
             end if
 
@@ -353,82 +360,80 @@ module  mod_goes_abi
                end do
             end do
 
-            !
-            ! ygyu
-            ix=0
-            do j = 1, ny; do i = 1, nx
-               ix=ix+1; F(ix,1)= rad_2d(i,j)  !  which band?
-            enddo; enddo
-            write(6, 101)  'ck 4.a'
+            !BJJ copy to output array: use ifile index
+            !F_out(1:nx,1:ny,ifile)=rad_2d(1:nx,1:ny)  !Radiance
+            !!varname_out(ifile)='Rad_'//fsat_id//fband_id(ifile)
+            !write(varname_out(ifile),"(A,I2.2)") 'Rad_'//fsat_id//'C', fband_id(ifile)
+            F_out(1:nx,1:ny,ifile)=bt_2d(1:nx,1:ny)  !Brightness Temperature
+            write(varname_out(ifile),"(A,I2.2)") 'BT_'//fsat_id//'C', fband_id(ifile)
 
-         else
+         elseif ( is_BCM(ifile) ) then
             call read_L2_BCM(ncid, nx, ny, cm_2d, time_start(it))
             if ( time_start(it) /= scan_time(ifile) ) then
-               write(uop,*) 'ERROR: scan start time from the file name and the file content do not match.'
+               write(0,*) 'ERROR: scan start time from the file name and the file content do not match.'
                cycle file_loop2
             end if
             if ( .not. allocated(rdata(it)%cm) )  allocate (rdata(it)%cm(nx,ny))
             rdata(it)%cm(:,:) = cm_2d(:,:)
 
-            !
-            ! ygyu
-            ix=0
-            do j = 1, ny; do i = 1, nx
-               ix=ix+1; F(ix,2)= cm_2d(i,j)  !  which band?
-            enddo; enddo
-            write(6, 101)  'ck 4.b'
+            !BJJ copy to output array: use ifile index
+            F_out(1:nx,1:ny,ifile)=cm_2d(1:nx,1:ny)
+            varname_out(ifile)='BCM_'//fsat_id
+
+         elseif ( is_TEMP(ifile) ) then
+            allocate (ctt_2d(nx, ny))   
+            call read_L2_TEMP(ncid, nx, ny, ctt_2d, time_start(it))
+            if ( time_start(it) /= scan_time(ifile) ) then
+               write(0,*) 'ERROR: scan start time from the file name and the file content do not match.'
+               cycle file_loop2
+            end if
+            !BJJ copy to output array: use ifile index
+            F_out(1:nx,1:ny,ifile)=ctt_2d(1:nx,1:ny)
+            varname_out(ifile)='TEMP_'//fsat_id
+            deallocate (ctt_2d)
+            
+         elseif ( is_Phase(ifile) ) then
+            allocate (ctph_2d(nx, ny))   
+            call read_L2_Phase(ncid, nx, ny, ctph_2d, time_start(it))
+            if ( time_start(it) /= scan_time(ifile) ) then
+               write(0,*) 'ERROR: scan start time from the file name and the file content do not match.'
+               cycle file_loop2
+            end if
+            !BJJ copy to output array: use ifile index
+            F_out(1:nx,1:ny,ifile)=ctph_2d(1:nx,1:ny)
+            varname_out(ifile)='Phase_'//fsat_id
+            deallocate (ctph_2d)
+            
+         else
+            write(0,*) 'ERROR: something is wrong. check the files'
+            stop
          end if         
+
          nf_status = nf_CLOSE(ncid)
+
       end if
 
    end do file_loop2
 
-   
    if ( allocated(rad_2d) ) deallocate(rad_2d)
    if ( allocated(bt_2d) )  deallocate(bt_2d)
    if ( allocated(qf_2d) )  deallocate(qf_2d)
    if ( allocated(cm_2d) )  deallocate(cm_2d)
 
-
-
-   !
-   ! YGYU insert final state
-   ! radiance data contains freq. band, I use the last one
-   ! code below is fake and wrong.
-   !
-   N=nx*ny
-   write(6, 121) 'ndim_mx, N', ndim_mx, N
-   if (ndim_mx < N) STOP 'upper bound error, ndim_mx < N'
-   ix=0
-   do j = 1, ny
-      do i = 1, nx
-         ix=ix+1
-         lon(ix)= glon(i,j) * deg2rad
-         lat(ix)= glat(i,j) * deg2rad
-!         if (mod(ix,200)==1)  write(6, 103) lon(ix), lat(ix)
+   if ( write_iodav1 ) then
+      do it = 1, ntime
+         out_fname = trim(data_id)//'_'//sat_id//'_'//time_start(it)//'.nc4'
+         write(0,*) 'Writing ', trim(out_fname)
+         if ( allocated(rdata(it)%cm) ) then
+            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
+               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd, rdata(it)%cm)
+         else
+            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
+               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd)
+         end if
       end do
-   end do
-   
+   end if
 
-! YGYU not needed here from the obs2ioda code
-!
-!   if ( write_iodav1 ) then
-!      do it = 1, ntime
-!         out_fname = trim(data_id)//'_'//sat_id//'_'//time_start(it)//'.nc4'
-!         write(uop,*) 'Writing ', trim(out_fname)
-!         if ( allocated(rdata(it)%cm) ) then
-!            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
-!               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd, rdata(it)%cm)
-!         else
-!            call output_iodav1(trim(out_fname), time_start(it), nx, ny, nband, got_latlon, &
-!               glat, glon, gzen, solzen, rdata(it)%bt, rdata(it)%qf, rdata(it)%sd)
-!         end if
-!      end do
-!   end if
-
-   
-   write(6, 101)  'ck 6'   
-   include './myformat.inc'   
    
    if ( allocated(glat) )   deallocate(glat)
    if ( allocated(glon) )   deallocate(glon)
@@ -451,6 +456,8 @@ module  mod_goes_abi
    deallocate(fband_id)
    deallocate(valid)
    deallocate(is_BCM)
+   deallocate(is_TEMP) !BJJ
+   deallocate(is_Phase) !BJJ
 
  end subroutine Goes_ReBroadcast_converter
 
@@ -467,7 +474,7 @@ subroutine read_GRB_dims(ncid, nx, ny)
    nf_status(3) = nf_INQ_DIMID(ncid, 'y', dimid)
    nf_status(4) = nf_INQ_DIMLEN(ncid, dimid, ny)
    if ( any(nf_status /= 0) ) then
-      write(uop,*) 'Error reading dimensions'
+      write(0,*) 'Error reading dimensions'
       stop
    end if
    return
@@ -771,12 +778,131 @@ subroutine read_L2_BCM(ncid, nx, ny, cm, time_start)
    return
 end subroutine read_L2_BCM
 
-subroutine decode_nc_fname(fname, finfo, scan_mode, is_BCM, band_id, sat_id, start_time, jday)
+subroutine read_L2_TEMP(ncid, nx, ny, ctt, time_start)
+   implicit none
+   integer(i_kind),   intent(in)    :: ncid
+   integer(i_kind),   intent(in)    :: nx, ny
+   real(r_kind),      intent(inout) :: ctt(nx,ny)
+   character(len=22), intent(out)   :: time_start  ! 2017-10-01T18:02:19.6Z
+   integer(i_byte),  allocatable    :: itmp_byte_2d(:,:)
+   integer(i_short), allocatable    :: itmp_short_2d(:,:)
+   integer(i_kind)                  :: nf_status
+   integer(i_kind)                  :: istart(2), icount(2)
+   integer(i_kind)                  :: varid, i, j
+   integer(i_short)                 :: ifill
+   integer(i_kind)                  :: imiss = -999
+   integer(i_kind)                  :: rmiss = -999.0
+   real(r_single)                   :: scalef, offset
+   integer(i_kind)                  :: qf(nx,ny)
+   continue
+
+   ! time_start is the same for all bands, but time_end is not
+   nf_status = nf_GET_ATT_TEXT(ncid, nf_GLOBAL, 'time_coverage_start', time_start)
+   !nf_status = nf_GET_ATT_TEXT(ncid, nf_GLOBAL, 'time_coverage_end',   time_end)
+
+   istart(1) = 1
+   icount(1) = nx
+   istart(2) = 1
+   icount(2) = ny
+   allocate(itmp_byte_2d(nx,ny))
+   nf_status = nf_INQ_VARID(ncid, 'DQF', varid)
+   nf_status = nf_GET_VARA_INT1(ncid, varid, istart(1:2), icount(1:2), itmp_byte_2d(:,:))
+   qf(:,:) = imiss
+   do j = 1, ny
+      do i = 1, nx
+         qf(i,j) = itmp_byte_2d(i,j)
+      end do
+   end do
+   deallocate(itmp_byte_2d)
+
+   istart(1) = 1
+   icount(1) = nx
+   istart(2) = 1
+   icount(2) = ny
+   allocate(itmp_short_2d(nx, ny))
+   nf_status = nf_INQ_VARID(ncid, 'TEMP', varid)
+   nf_status = nf_GET_VARA_INT2(ncid, varid, istart(1:2), icount(1:2), itmp_short_2d(:,:))
+   nf_status = nf_GET_ATT_INT2(ncid, varid, '_FillValue',  ifill)
+   nf_status = nf_GET_ATT_REAL(ncid, varid, 'scale_factor', scalef)
+   nf_status = nf_GET_ATT_REAL(ncid, varid, 'add_offset', offset)
+   ctt(:,:) = rmiss
+   do j = 1, ny
+      do i = 1, nx
+         if ( itmp_short_2d(i,j) /= ifill ) then
+            if (qf(i,j) == 0 ) then ! good quality
+               ctt(i,j) = offset + itmp_short_2d(i,j) * scalef
+            end if
+         end if
+      end do
+   end do
+   deallocate(itmp_short_2d)
+
+   return
+end subroutine read_L2_TEMP
+
+subroutine read_L2_Phase(ncid, nx, ny, ctph, time_start)
+   implicit none
+   integer(i_kind),   intent(in)    :: ncid
+   integer(i_kind),   intent(in)    :: nx, ny
+   real(r_kind),      intent(inout) :: ctph(nx,ny)
+   character(len=22), intent(out)   :: time_start  ! 2017-10-01T18:02:19.6Z
+   integer(i_byte),  allocatable    :: itmp_byte_2d(:,:)
+   integer(i_kind)                  :: nf_status
+   integer(i_kind)                  :: istart(2), icount(2)
+   integer(i_kind)                  :: varid, i, j
+   integer(i_kind)                  :: imiss = -999
+   integer(i_kind)                  :: rmiss = -999.0
+   integer(i_kind)                  :: qf(nx,ny)
+   continue
+
+   ! time_start is the same for all bands, but time_end is not
+   nf_status = nf_GET_ATT_TEXT(ncid, nf_GLOBAL, 'time_coverage_start', time_start)
+   !nf_status = nf_GET_ATT_TEXT(ncid, nf_GLOBAL, 'time_coverage_end',   time_end)
+
+   istart(1) = 1
+   icount(1) = nx
+   istart(2) = 1
+   icount(2) = ny
+   allocate(itmp_byte_2d(nx,ny))
+   nf_status = nf_INQ_VARID(ncid, 'DQF', varid)
+   nf_status = nf_GET_VARA_INT1(ncid, varid, istart(1:2), icount(1:2), itmp_byte_2d(:,:))
+   qf(:,:) = imiss
+   do j = 1, ny
+      do i = 1, nx
+         qf(i,j) = itmp_byte_2d(i,j)
+      end do
+   end do
+   deallocate(itmp_byte_2d)
+
+   istart(1) = 1
+   icount(1) = nx
+   istart(2) = 1
+   icount(2) = ny
+   allocate(itmp_byte_2d(nx,ny))
+   nf_status = nf_INQ_VARID(ncid, 'Phase', varid)
+   nf_status = nf_GET_VARA_INT1(ncid, varid, istart(1:2), icount(1:2), itmp_byte_2d(:,:))
+   ctph(:,:) = rmiss
+   do j = 1, ny
+      do i = 1, nx
+         if ( qf(i,j) == 0 ) then ! good quality
+            ctph(i,j) = itmp_byte_2d(i,j)
+         end if
+      end do
+   end do
+   deallocate(itmp_byte_2d)
+
+   return
+end subroutine read_L2_Phase
+
+subroutine decode_nc_fname(fname, finfo, scan_mode, is_BCM, is_TEMP, is_Phase, &
+                           band_id, sat_id, start_time, jday)
    implicit none
    character(len=*),  intent(in)  :: fname
    character(len=18), intent(out) :: finfo
    character(len=2),  intent(out) :: scan_mode
    logical,           intent(out) :: is_BCM
+   logical,           intent(out) :: is_TEMP
+   logical,           intent(out) :: is_Phase
    integer(i_kind),   intent(out) :: band_id
    character(len=3),  intent(out) :: sat_id
    character(len=22), intent(out) :: start_time
@@ -786,13 +912,22 @@ subroutine decode_nc_fname(fname, finfo, scan_mode, is_BCM, band_id, sat_id, sta
    if ( fname( 1:14) == BCM_id ) then
       is_BCM = .true.
       band_id = -99
+   else if ( fname( 1:15) == TEMP_id ) then
+      is_TEMP = .true.
+      band_id = -99
+   else if ( fname( 1:15) == Phase_id ) then
+      is_Phase = .true.
+      band_id = -99
    else
       is_BCM = .false.
+      is_TEMP = .false.
+      is_Phase = .false.
    end if
+
    !CG_ABI-L2-ACMC-M3_G16_s20180351202275_e20180351205060_c20180351205106.nc
    !OR_ABI-L1b-RadC-M3C16_G16_s20172741802196_e20172741804580_c20172741805015.nc
    !1234567890123456789012345678901234567890123456789012345678901234567890123456
-   if ( .not. is_BCM ) then
+   if ( .not. ( is_BCM .or. is_TEMP .or. is_Phase ) ) then
       read(fname( 1:18), '(a18)') finfo
       read(fname(17:18), '(a2)')  scan_mode
       read(fname(20:21), '(i2)')  band_id
@@ -808,7 +943,9 @@ subroutine decode_nc_fname(fname, finfo, scan_mode, is_BCM, band_id, sat_id, sta
       ! 2017-10-01T18:02:19.6Z
       write(start_time,'(i4.4,4(a,i2.2),a,i2.2,a,i1,a)') &
             year, '-', month, '-', day, 'T', hour, ':',  minute, ':', sec1, '.', sec2, 'Z'
-   else
+   else if ( is_BCM ) then
+   !OR_ABI-L2-ACMF-M3_G16_s20181050000419_e20181050011186_c20181050011347.nc
+   !1234567890123456789012345678901234567890123456789012345678901234567890123456
       read(fname( 1:17), '(a17)') finfo
       read(fname(16:17), '(a2)')  scan_mode
       read(fname(19:21), '(a3)')  sat_id
@@ -823,6 +960,27 @@ subroutine decode_nc_fname(fname, finfo, scan_mode, is_BCM, band_id, sat_id, sta
       ! 2017-10-01T18:02:19.6Z
       write(start_time,'(i4.4,4(a,i2.2),a,i2.2,a,i1,a)') &
             year, '-', month, '-', day, 'T', hour, ':',  minute, ':', sec1, '.', sec2, 'Z'
+   else if ( is_TEMP .or. is_Phase ) then
+      !OR_ABI-L2-ACHTF-M3_G16_s20181050000419_e20181050011186_c20181050012223.nc
+      !OR_ABI-L2-ACTPF-M3_G16_s20181050000419_e20181050011186_c20181050011460.nc
+      !1234567890123456789012345678901234567890123456789012345678901234567890123456
+      read(fname( 1:18), '(a18)') finfo
+      read(fname(17:18), '(a2)')  scan_mode
+      read(fname(20:22), '(a3)')  sat_id
+      read(fname(25:28), '(i4)')  year
+      read(fname(29:31), '(i3)')  jday
+      read(fname(32:33), '(i2)')  hour
+      read(fname(34:35), '(i2)')  minute
+      read(fname(36:37), '(i2)')  sec1   ! integer part of second
+      read(fname(38:38), '(i1)')  sec2   ! decimal part of second
+      ! get month and day from julian day
+      call get_date(year, jday, month, day)
+      ! 2017-10-01T18:02:19.6Z
+      write(start_time,'(i4.4,4(a,i2.2),a,i2.2,a,i1,a)') &
+            year, '-', month, '-', day, 'T', hour, ':',  minute, ':', sec1, '.', sec2, 'Z'
+   else
+      write(0,*) 'Error decode_nc_fname'
+      stop
    end if
    return
 end subroutine decode_nc_fname
@@ -924,7 +1082,7 @@ subroutine output_iodav1(fname, time_start, nx, ny, nband, got_latlon, lat, lon,
       end do
    end do
 
-   write(uop,*) 'nlocs = ', nlocs
+   write(0,*) 'nlocs = ', nlocs
    if ( nlocs <= 0 ) then
       return
    end if
@@ -1102,8 +1260,8 @@ subroutine calc_solar_zenith_angle(nx, ny, xlat, xlon, xtime, julian, solzen, go
          solzen(i,j) = acos( sin(rlat)*sin(declin) + &
                              cos(rlat)*cos(declin)*cos(hrang) )
          solzen(i,j) = solzen(i,j) * rad2deg
-      enddo
-   enddo
+      end do
+   end do
 
    return
 end subroutine calc_solar_zenith_angle
@@ -1118,7 +1276,7 @@ end subroutine calc_solar_zenith_angle
     if(errcode /= nf90_noerr) then
        print *, 'Error: ', trim(nf90_strerror(errcode))
        stop 2
-    endif
+    end if
   end subroutine check
 
  end module mod_goes_abi

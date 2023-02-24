@@ -34,7 +34,7 @@ endif()
 
 find_package(NetCDF REQUIRED COMPONENTS Fortran C)
 
-add_subdirectory( goes2wps )
+add_subdirectory( goes2mpas )
 
 ## Package Config
 ecbuild_install_project( NAME ${PROJECT_NAME} )
