@@ -229,7 +229,7 @@ program  main
    ! find a SINGLE nearest point from a set of matching pairs.
    do iC= 1, nC
       dist_min=999. ! init
-      idx_min=999   ! init
+      idx_min=-999  ! init
       do iS = 1, cnt_match(iC)
          ! measure a distance between Satellite point and MPAS point,
          ! then, find closest pair
@@ -240,7 +240,7 @@ program  main
          end if
       end do
       ! assign
-      if (idx_min.ne.999) then
+      if (idx_min.ne.-999) then
          field_mpas(iC,1:nfield) = field_s_dist(idx_min,1:nfield,iC)
       end if
    end do !-- nC
