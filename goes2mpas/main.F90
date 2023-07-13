@@ -12,6 +12,8 @@ program  main
    use mod_goes_abi, only: Goes_ReBroadcast_converter
    use mod_read_write_mpas, only: read_mpas_latlon, write_to_mpas
    use mod_read_write_indx, only: read_indx, write_indx
+   use netcdf
+   use control_para
 
    implicit none
 
@@ -57,6 +59,8 @@ program  main
    logical             :: l_write_indx ! .true.= write pre-calculated interp_indx as NetCDF file
    namelist /main_nml/ f_mpas_latlon, f_mpas_out, l_read_indx ,l_write_indx
 
+   integer(i_kind) :: ncid, nf_status, dimid(2), varid
+
  
    777 format(2x,(a,2x,i4.4,a,i2.2,a,i2.2,2x,i2.2,a,i2.2,a,i2.2,/))
    call date_and_time(VALUES=tval)
@@ -91,6 +95,39 @@ program  main
    nS= nx*ny   ! pts from satellite
    call date_and_time(VALUES=tval)
    write (6, 777) 'GOES READ DONE: ',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
+
+   !----- write out lon_s, lat_s to NetCDF file
+   nf_status = nf90_CREATE("latlon.nc", cmode=NF90_64BIT_OFFSET, ncid=ncid)
+   nf_status = nf90_def_dim(ncid,"x",nx,dimid(1))
+   write(0,*) "nx=",nx
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_def_dim:nx:",nf_status; stop; end if
+   write(0,*) "nx=",ny
+   nf_status = nf90_def_dim(ncid,"y",ny,dimid(2))
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_def_dim:ny:",nf_status; stop; end if
+
+   nf_status = nf90_def_var(ncid,"lon",NF90_FLOAT,dimid,varid)
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_def_var:",nf_status; stop; end if
+   nf_status = nf90_def_var(ncid,"lat",NF90_FLOAT,dimid,varid)
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_def_var:",nf_status; stop; end if
+   nf_status = nf90_enddef(ncid)
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_enddef:",nf_status; stop; end if
+
+   nf_status = nf90_inq_varid(ncid,"lon",varid)
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_varid:",nf_status; stop; end if
+   write(0,*) "put lon----"
+   nf_status = nf90_put_var(ncid,varid,lon_s) !, (/nx,ny/)) !reshape(var(:,i), (/nC,1/)) )
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_put_var:",nf_status; stop; end if
+   nf_status = nf90_inq_varid(ncid,"lat",varid)
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_varid:",nf_status; stop; end if
+   write(0,*) "put lat----"
+   nf_status = nf90_put_var(ncid,varid,lat_s) !, (/nx,ny/)) !reshape(var(:,i), (/nC,1/)) )
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_put_var:",nf_status; stop; end if
+
+   write(0,*) "let's close"
+   nf_status = nf90_close(ncid)
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_close:",nf_status; stop; end if
+
+   stop 777
 
    ! count the valid point
    icnt=0
