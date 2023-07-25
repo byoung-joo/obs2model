@@ -96,6 +96,8 @@ program  main
    call date_and_time(VALUES=tval)
    write (6, 777) 'GOES READ DONE: ',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 
+   !BJJ debug
+   write(*,*) "BJJ debug: varname_s = ",varname_s
    !----- write out lon_s, lat_s to NetCDF file
    nf_status = nf90_CREATE("latlon.nc", cmode=NF90_64BIT_OFFSET, ncid=ncid)
    nf_status = nf90_def_dim(ncid,"x",nx,dimid(1))
@@ -109,6 +111,8 @@ program  main
    if ( nf_status /= 0 ) then; write(0,*) "nf90_def_var:",nf_status; stop; end if
    nf_status = nf90_def_var(ncid,"lat",NF90_FLOAT,dimid,varid)
    if ( nf_status /= 0 ) then; write(0,*) "nf90_def_var:",nf_status; stop; end if
+   nf_status = nf90_def_var(ncid,"BT_G16C13",NF90_FLOAT,dimid,varid)
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_def_var:",nf_status; stop; end if
    nf_status = nf90_enddef(ncid)
    if ( nf_status /= 0 ) then; write(0,*) "nf90_enddef:",nf_status; stop; end if
 
@@ -121,6 +125,11 @@ program  main
    if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_varid:",nf_status; stop; end if
    write(0,*) "put lat----"
    nf_status = nf90_put_var(ncid,varid,lat_s) !, (/nx,ny/)) !reshape(var(:,i), (/nC,1/)) )
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_put_var:",nf_status; stop; end if
+   nf_status = nf90_inq_varid(ncid,"BT_G16C13",varid)
+   if ( nf_status /= 0 ) then; write(0,*) "nf90_inq_varid:",nf_status; stop; end if
+   write(0,*) "put BT_G16C13----"
+   nf_status = nf90_put_var(ncid,varid,field_s(:,:,1)) !, (/nx,ny,??/)) !BJJ 3rd index for "BT_G16C13"
    if ( nf_status /= 0 ) then; write(0,*) "nf90_put_var:",nf_status; stop; end if
 
    write(0,*) "let's close"
