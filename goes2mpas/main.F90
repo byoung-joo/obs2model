@@ -19,7 +19,7 @@ program  main
    integer :: i, j, icnt, istat
    integer :: nml_unit = 81
 
-   integer :: nx, ny, nfield  ! x y dimension of raw satellite data, number of field read from satellite
+   integer :: nx, ny, nfield, ifld  ! x y dimension of raw satellite data, number of field read from satellite
    integer :: nS, iS  ! nS: total number of raw satellite grid
    real(sp), allocatable :: lon_s(:,:), lat_s(:,:)  ! (nx,ny) direct read from file
    real(sp), allocatable :: field_s(:,:,:)          ! (nx,ny,nfield)
@@ -221,38 +221,52 @@ program  main
    deallocate(interp_indx)
 
 
-   !----- 5. find the neasest pair ----------------------------------------------
+!   !----- 5. find the neasest pair ----------------------------------------------
+!   ! allocate and initialize the field_mpas
+!   allocate( field_mpas(nC,nfield) )
+!   field_mpas=-999.0
+!
+!   ! find a SINGLE nearest point from a set of matching pairs.
+!   do iC= 1, nC
+!      dist_min=999. ! init
+!      idx_min=-999  ! init
+!      do iS = 1, cnt_match(iC)
+!         ! measure a distance between Satellite point and MPAS point,
+!         ! then, find closest pair
+!         dist = ageometry%distance(lon_mpas_dp(iC),lat_mpas_dp(iC),lon_s_dist(iS,iC),lat_s_dist(iS,iC))
+!         if (dist .lt. dist_min) then ! update
+!            dist_min=dist
+!            idx_min=iS
+!         end if
+!      end do
+!      ! assign
+!      if (idx_min.ne.-999) then
+!         field_mpas(iC,1:nfield) = field_s_dist(idx_min,1:nfield,iC)
+!      end if
+!   end do !-- nC
+!   call date_and_time(VALUES=tval)
+!   write (6, 777) 'Find the min. distance pairs done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
+!
+!   ! deallocate
+!   deallocate(cnt_match)
+!   deallocate(lon_s_dist)
+!   deallocate(lat_s_dist)
+!   deallocate(field_s_dist)
+
+
+   !----- 5b. super ob find the neasest pair ------------------------------------
    ! allocate and initialize the field_mpas
    allocate( field_mpas(nC,nfield) )
    field_mpas=-999.0
 
-   ! find a SINGLE nearest point from a set of matching pairs.
-   do iC= 1, nC
-      dist_min=999. ! init
-      idx_min=-999  ! init
-      do iS = 1, cnt_match(iC)
-         ! measure a distance between Satellite point and MPAS point,
-         ! then, find closest pair
-         dist = ageometry%distance(lon_mpas_dp(iC),lat_mpas_dp(iC),lon_s_dist(iS,iC),lat_s_dist(iS,iC))
-         if (dist .lt. dist_min) then ! update
-            dist_min=dist
-            idx_min=iS
-         end if
-      end do
-      ! assign
-      if (idx_min.ne.-999) then
-         field_mpas(iC,1:nfield) = field_s_dist(idx_min,1:nfield,iC)
-      end if
-   end do !-- nC
-   call date_and_time(VALUES=tval)
-   write (6, 777) 'Find the min. distance pairs done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
+   field_s_dist = field_s_dist * merge(1,0,field_s_dist.ne.-999.0) ! for effective sum
 
-   ! deallocate
-   deallocate(cnt_match)
-   deallocate(lon_s_dist)
-   deallocate(lat_s_dist)
-   deallocate(field_s_dist)
-
+   do ifld = 1, nfield
+      do iC = 1, nC
+         if(cnt_match(iC).eq.0) cycle ! prevent zero denominator below
+         field_mpas(iC,ifld) = sum(field_s_dist(:,ifld,iC)) / cnt_match(iC) ! applied for both cloud mask and other physical quantities
+      end do !-- nC 
+   end do !-- ifld
 
    !----- 6. Write the interpolated fields to MPAS file--------------------------
    ! write to the existing MPAS file.
