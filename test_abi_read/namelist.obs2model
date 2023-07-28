@@ -9,7 +9,8 @@
 
 &main_nml
   f_mpas_latlon = '/glade/p/mmm/parc//liuz/pandac_common/30km/30km_GFSANA/x1.655362.init.2018-04-15_00.00.00.nc', ! MPAS file path/name to read lat & lon information
-  f_mpas_out    = './newfile_30km.nc'   , ! MPAS file for writing the interpolated ABI fields
+  f_mpas_out    = './newfile_30km_so_t.nc'   , ! MPAS file for writing the interpolated ABI fields
   l_read_indx   = .true.,  ! read index and counnt for matching ABI-MPAS pairs
-  l_write_indx  = .false.,   ! write index and counnt for matching ABI-MPAS pairs
+  l_write_indx  = .false.,  ! write index and counnt for matching ABI-MPAS pairs
+  l_superob     = .true.,   ! .true.= mesh-based superob, .false.= nearest-neighbor
 /
