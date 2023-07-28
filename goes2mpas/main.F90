@@ -48,6 +48,7 @@ program  main
    integer, allocatable :: cnt_match(:)
    real(dp), allocatable :: lat_s_dist(:,:), lon_s_dist(:,:) !for re-organize
    real(sp), allocatable :: field_s_dist(:,:,:)
+   real(sp), allocatable :: array_so(:) ! temporary array for super_ob
    integer :: max_pair
 
    !BJJ namelist for nml_main
@@ -124,7 +125,7 @@ program  main
    if(icnt .ne. nS_valid) STOP 777 ! sanity check
 
 
-   !----- 3. read MPAS lat/lon --------------------------------------------------
+   !----- 2. read MPAS lat/lon --------------------------------------------------
    ! read lon / lat from MPAS file
    call read_mpas_latlon (f_mpas_latlon, nC, lon_mpas, lat_mpas)  ! unit [radian], single precision
    lon_mpas_dp=lon_mpas ! pass double precision for kd-tree
@@ -230,14 +231,23 @@ program  main
 
    if ( l_superob ) then
 
-      field_s_dist = field_s_dist * merge(1,0,field_s_dist.ne.-999.0) ! for effective sum, replace the missing (-999.0) by (0.)
+      allocate( array_so(max_pair) )
 
       do ifld = 1, nfield
          do iC = 1, nC
-            if(cnt_match(iC).eq.0) cycle ! prevent zero denominator below
-            field_mpas(iC,ifld) = sum(field_s_dist(:,ifld,iC)) / cnt_match(iC) ! applied for both cloud mask and other physical quantities
+            array_so(:) = field_s_dist(:,ifld,iC) ! temporary array for super_ob
+            ! if there is no matching pair or all patching values are missing
+            if ( cnt_match(iC).eq.0 .or. all(array_so(:).eq.-999.0) ) then
+               field_mpas(iC,ifld) = -999.0 ! specify a missing value
+            else
+               !for effective sum, replace the missing (-999.0) by (0.)
+               array_so(:) = array_so(:) * merge(1.0,0.0,array_so(:).ne.-999.0)
+               field_mpas(iC,ifld) = sum(array_so(:)) / cnt_match(iC) ! applied for both cloud mask and other physical quantities
+            end if
          end do !-- nC 
       end do !-- ifld
+
+      deallocate(array_so)
 
    else ! nearest neighbor
 
