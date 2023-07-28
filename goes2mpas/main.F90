@@ -246,6 +246,8 @@ program  main
             end if
          end do !-- nC 
       end do !-- ifld
+      call date_and_time(VALUES=tval)
+      write (6, 777) 'Apply super-ob done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
 
       deallocate(array_so)
 
