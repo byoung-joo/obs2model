@@ -9,7 +9,8 @@ program  main
    use kinds, only : sp, dp
    use control_para, only : tval, pi, rad2deg, deg2rad
    use atlas_module, only: atlas_geometry, atlas_indexkdtree
-   use mod_goes_abi, only: Goes_ReBroadcast_converter
+   use mod_goes_abi, only: Goes_ReBroadcast_converter, calc_geostationary_satellite_zenith_angle, &
+                           calc_solar_zenith_angle, output_iodav1_o2m
    use mod_read_write_mpas, only: read_mpas_latlon, write_to_mpas
    use mod_read_write_indx, only: read_indx, write_indx
 
@@ -50,6 +51,17 @@ program  main
    real(sp), allocatable :: field_s_dist(:,:,:)
    real(sp), allocatable :: array_so(:) ! temporary array for super_ob
    integer :: max_pair
+   !BJJ ioda writing
+   character(len=256) :: out_fname
+   character(len=22)  :: scan_time ! 2017-10-01T18:02:19.6Z
+   integer :: ifile, julianday
+   real(dp) :: r_eq    ! GRS80 semi-major axis of earth
+   real(dp) :: lon_sat ! satellite longitude, longitude_of_projection_origin
+   real(dp) :: h_sat   ! satellite height
+   real(sp), allocatable :: gzen(:)    ! satellite zenith angle @ MPAS mesh (nC)
+   logical, allocatable :: l_got_latlon(:)
+   real(sp), allocatable :: solzen(:)
+
 
    !BJJ namelist for nml_main
    character(len=256)  :: f_mpas_latlon
@@ -57,7 +69,8 @@ program  main
    logical             :: l_read_indx  ! .true.= read pre-calculated interp_indx from NetCDF file, .false.= calculate it
    logical             :: l_write_indx ! .true.= write pre-calculated interp_indx as NetCDF file
    logical             :: l_superob    ! .true.= mesh-based superob, .false.= nearest-neighbor 
-   namelist /main_nml/ f_mpas_latlon, f_mpas_out, l_read_indx, l_write_indx, l_superob
+   logical             :: l_write_o2m_iodav1 ! .true.= write superob/neqrest-neighbor into ioda v1 file
+   namelist /main_nml/ f_mpas_latlon, f_mpas_out, l_read_indx, l_write_indx, l_superob, l_write_o2m_iodav1
 
  
    777 format(2x,(a,2x,i4.4,a,i2.2,a,i2.2,2x,i2.2,a,i2.2,a,i2.2,/))
@@ -72,6 +85,7 @@ program  main
    l_read_indx   = .false.  ! read index and counnt for matching ABI-MPAS pairs
    l_write_indx  = .false.  ! write index and counnt for matching ABI-MPAS pairs
    l_superob     = .false.  ! .true.= mesh-based superob, .false.= nearest-neighbor
+   l_write_o2m_iodav1 = .false. ! .true.= write superob/neqrest-neighbor into ioda v1 file
 
    ! read namelist
    open(unit=nml_unit, file='namelist.obs2model', status='old', form='formatted')
@@ -277,21 +291,64 @@ program  main
    end if
 
    ! deallocate
-   deallocate(cnt_match)
+   if ( .not. l_write_o2m_iodav1 ) deallocate(cnt_match)
    deallocate(lon_s_dist)
    deallocate(lat_s_dist)
    deallocate(field_s_dist)
 
 
-   !----- 6. Write the interpolated fields to MPAS file--------------------------
-   ! write to the existing MPAS file.
-   call write_to_mpas (f_mpas_out, nC, nfield, field_mpas, varname_s)
-   call date_and_time(VALUES=tval)
-   write (6, 777) 'write_to_mpas done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
+   !----- 6a. Write the interpolated fields to MPAS file--------------------------
+   if ( .not. l_write_o2m_iodav1 ) then
+      ! write to the existing MPAS file.
+      call write_to_mpas (f_mpas_out, nC, nfield, field_mpas, varname_s)
+      call date_and_time(VALUES=tval)
+      write (6, 777) 'write_to_mpas done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
+
+   !----- 6b. Write the interpolated fields to IODA file--------------------------
+   else ! l_write_o2m_iodav1 .eq. .true.
+
+      rewind(15)
+      read(15,*) lon_sat, r_eq, h_sat
+      write(*,*) lon_sat, r_eq, h_sat
+      read(15,*) ifile, scan_time, julianday
+      write(*,*) ifile, scan_time, julianday
+
+      ! calculate geostationary satellite zenith angle @ MPAS mesh
+      allocate(gzen(nC))
+      allocate(l_got_latlon(nC))
+      l_got_latlon=.false.
+      do iC = 1, nC
+         if ( cnt_match(iC).eq.0 ) cycle !BJJ we can set this every Cells.
+         ! glat, glon, gzen are in [radian] in this routine.
+         call calc_geostationary_satellite_zenith_angle( \
+              lat_mpas(iC), lon_mpas(iC), lon_sat, r_eq, h_sat, gzen(iC) )
+         lat_mpas(iC) = lat_mpas(iC) * rad2deg
+         lon_mpas(iC) = lon_mpas(iC) * rad2deg
+         gzen(iC)     = gzen(iC)     * rad2deg
+         l_got_latlon(iC) = .true.
+      end do
+
+      ! calculate solar zenith angle @ MPAS mesh
+      allocate(solzen(nC))
+      call calc_solar_zenith_angle(nC, 1, lat_mpas(:), lon_mpas(:), scan_time, julianday, solzen(:), l_got_latlon(:))
+      out_fname="mpas_iodav1.nc"
+      call output_iodav1_o2m(trim(out_fname), scan_time, nC, 10, l_got_latlon(:), &
+                             lat_mpas(:), lon_mpas(:), gzen(:), solzen(:), transpose(field_mpas) )  ! field_mpas(nC,nfield)
+
+      call date_and_time(VALUES=tval)
+      write (6, 777) 'write_to_ioda done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
+
+      ! deallocate
+      deallocate(cnt_match)
+      deallocate(gzen)
+      deallocate(l_got_latlon)
+      deallocate(solzen)
+   end if
 
    ! deallocate
    deallocate(field_mpas)
 
+   !----- all done
    write(6,*) "END OF PROGRAM"
 
 end program main
