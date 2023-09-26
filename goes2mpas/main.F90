@@ -332,6 +332,7 @@ program  main
       allocate(solzen(nC))
       call calc_solar_zenith_angle(nC, 1, lat_mpas(:), lon_mpas(:), scan_time, julianday, solzen(:), l_got_latlon(:))
       out_fname="mpas_iodav1.nc"
+      ! actual array for field_mpas=11, 10 for ch7-16, the last array 11 for 2D cloud fraction.
       call output_iodav1_o2m(trim(out_fname), scan_time, nC, 10, l_got_latlon(:), &
                              lat_mpas(:), lon_mpas(:), gzen(:), solzen(:), transpose(field_mpas) )  ! field_mpas(nC,nfield)
 

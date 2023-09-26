@@ -1225,7 +1225,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    real(r_kind),       intent(in) :: lon(nC)
    real(r_kind),       intent(in) :: sat_zen(nC)
    real(r_kind),       intent(in) :: sun_zen(nC)
-   real(r_kind),       intent(in) :: bt(nband,nC)
+   real(r_kind),       intent(in) :: bt(nband+1,nC) !BJJ 1:nband for bt, nband+1 for 2d cloud fraction
 
    integer(i_kind), parameter :: nstring = 50
    integer(i_kind), parameter :: ndatetime = 20
@@ -1265,7 +1265,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    nlocs = 0
    do iC = 1, nC
       if ( .not. got_latlon(iC) ) cycle
-      if ( sat_zen(iC) > 80.0 ) cycle
+      if ( sat_zen(iC) >= 70.0 ) cycle !BJJ 80 -> 70 for consistency btw tb & cm
       if ( all(bt(:,iC)<0.0) ) cycle
       nlocs = nlocs + 1
    end do
@@ -1284,7 +1284,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    allocate (sat_azi_out(nlocs))
    allocate (sun_zen_out(nlocs))
    allocate (sun_azi_out(nlocs))
-   allocate (bt_out(nband,nlocs))
+   allocate (bt_out(nband+1,nlocs)) !BJJ nband+1 for 2d cf
    allocate (err_out(nband,nlocs))
    allocate (qf_out(nband,nlocs))
 
@@ -1298,7 +1298,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    iloc = 0
    do iC = 1, nC
       if ( .not. got_latlon(iC) ) cycle
-      if ( sat_zen(iC) > 80.0 ) cycle
+      if ( sat_zen(iC) >= 70.0 ) cycle !BJJ 80 -> 70 for consistency btw tb & cm
       if ( all(bt(:,iC)<0.0) ) cycle
       iloc = iloc + 1
       write(unit=datetime(iloc), fmt='(i4,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a)')  &
@@ -1307,7 +1307,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
       lon_out(iloc) = lon(iC)
       sat_zen_out(iloc) = sat_zen(iC)
       sun_zen_out(iloc) = sun_zen(iC)
-      bt_out(1:nband,iloc) = bt(1:nband,iC)
+      bt_out(1:nband+1,iloc) = bt(1:nband+1,iC) !BJJ nband+1 for 2d cf
       qf_out(1:nband,iloc) = 0.0 ! BJJ what this can be for superob/nearest obs ?
       scan_pos_out(iloc) = 0.0   ! BJJ what this can be ?
       sat_azi_out(iloc) = missing_r
@@ -1352,6 +1352,8 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    call def_netcdf_var(ncfileid,ncname,(/ncid_ndatetime,ncid_nlocs/),NF_CHAR)
    ncname = 'variable_names@VarMetaData'
    call def_netcdf_var(ncfileid,ncname,(/ncid_nstring,ncid_nvars/),NF_CHAR)
+   ncname = 'cloudAmount@MetaData'
+   call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_FLOAT)
    call def_netcdf_end(ncfileid)
 
    do i = 1, nvars
@@ -1385,6 +1387,8 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    call put_netcdf_var(ncfileid,ncname,datetime)
    ncname = 'variable_names@VarMetaData'
    call put_netcdf_var(ncfileid,ncname,name_var_tb(1:nband))
+   ncname = 'cloudAmount@MetaData'
+   call put_netcdf_var(ncfileid,ncname,bt_out(nband+1,:))
    call close_netcdf(trim(fname),ncfileid)
 
    deallocate (name_var_tb)
