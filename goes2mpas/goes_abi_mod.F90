@@ -1243,6 +1243,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    real(r_kind), allocatable :: bt_out(:,:)
    real(r_kind), allocatable :: err_out(:,:)
    real(r_kind), allocatable :: qf_out(:,:)
+   integer(i_kind), allocatable :: iC_out(:)  !BJJ for cellIndex@MetaData
 
    integer(i_kind) :: ncid_nlocs
    integer(i_kind) :: ncid_nvars
@@ -1287,6 +1288,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    allocate (bt_out(nband+1,nlocs)) !BJJ nband+1 for 2d cf
    allocate (err_out(nband,nlocs))
    allocate (qf_out(nband,nlocs))
+   allocate (iC_out(nlocs))  !BJJ for cellIndex@MetaData
 
    read(time_start( 1: 4), '(i4)') iyear
    read(time_start( 6: 7), '(i2)') imonth
@@ -1313,6 +1315,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
       sat_azi_out(iloc) = missing_r
       sun_azi_out(iloc) = missing_r
       err_out(1:nband,iloc) = 1.0 !missing_r
+      iC_out(iloc) = iC !BJJ
    end do
 
    call open_netcdf_for_write(trim(fname),ncfileid)
@@ -1354,6 +1357,8 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    call def_netcdf_var(ncfileid,ncname,(/ncid_nstring,ncid_nvars/),NF_CHAR)
    ncname = 'cloudAmount@MetaData'
    call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_FLOAT)
+   ncname = 'cellIndex@MetaData'
+   call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_INT)
    call def_netcdf_end(ncfileid)
 
    do i = 1, nvars
@@ -1389,6 +1394,8 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    call put_netcdf_var(ncfileid,ncname,name_var_tb(1:nband))
    ncname = 'cloudAmount@MetaData'
    call put_netcdf_var(ncfileid,ncname,bt_out(nband+1,:))
+   ncname = 'cellIndex@MetaData'
+   call put_netcdf_var(ncfileid,ncname,iC_out)
    call close_netcdf(trim(fname),ncfileid)
 
    deallocate (name_var_tb)
@@ -1403,6 +1410,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    deallocate (bt_out)
    deallocate (err_out)
    deallocate (qf_out)
+   deallocate (iC_out)
 
 end subroutine output_iodav1_o2m
 
