@@ -242,42 +242,40 @@ program  main
    !----- 5. interpolate the obs fields into model mesh either superob or nearest neighbor.
    ! allocate and initialize the field_mpas
    allocate( field_mpas(nC,nfield) )
+   allocate( field_mpas_std(nC,nfield) )
    field_mpas=-999.0
+   field_mpas_std=-999.0
 
    if ( l_superob ) then
 
-      allocate( array_so(max_pair) )
-      allocate( field_mpas_std(nC,nfield) )
-
       do ifld = 1, nfield
          do iC = 1, nC
-            array_so(:) = field_s_dist(:,ifld,iC) ! temporary array for super_ob
-            if(iC.eq.nC/2) write(*,*) array_so
-            ! if there is no matching pair or all patching values are missing
-            if ( cnt_match(iC).eq.0 .or. all(array_so(:).eq.-999.0) ) then
-               field_mpas(iC,ifld) = -999.0 ! specify a missing value
-               field_mpas_std(iC,ifld) = -999.0 ! specify a missing value
+            if ( cnt_match(iC).eq.0 .or. all(field_s_dist(:,ifld,iC).eq.-999.0) ) then
+               ! if there is no matching pair or all paired values are missing
+               cycle !do nothing
             else
-               !for effective sum, replace the missing (-999.0) by (0.)
-               array_so(:) = array_so(:) * merge(1.0,0.0,array_so(:).ne.-999.0)
-               field_mpas(iC,ifld) = sum(array_so(:)) / cnt_match(iC) ! applied for both cloud mask and other physical quantities
-               ! calculate std of SO
-               if ( cnt_match(iC).gt.1 ) then
-                  !field_mpas_std(iC,ifld) = sqrt( sum(array_so(:)**2)/real(cnt_match(iC)-1) &
-                  !                             - real(cnt_match(iC))/real(cnt_match(iC)-1)*field_mpas(iC,ifld)**2 ) !BJJ: Is this good enough formula ?
-                  field_mpas_std(iC,ifld) = sqrt( sum( ( array_so(1:cnt_match(iC)) - field_mpas(iC,ifld) )**2 )  &
-                                                 / real(cnt_match(iC)) )
-               else
-                  field_mpas_std(iC,ifld) = -999.0 ! specify a missing value
-               end if 
-            if(iC.eq.nC/2) write(*,*) field_mpas(iC,ifld), field_mpas_std(iC,ifld), cnt_match(iC)
+               ! do superob
+               icnt=count(field_s_dist(:,ifld,iC)/=-999.0) ! check the # of valid data
+               if(icnt.eq.0) cycle !do nothing
+               if(icnt.gt.cnt_match(iC)) STOP 778 ! sanity check
+               !if(icnt.ne cnt_match(iC)) write(*,*) "=========== WARNING ========== &
+               !                          There are some missing values in paired- obs pixels", ifld, iC, icnt, cnt_match(iC)
+               ! temporary array W/O any missing data
+               allocate( array_so(icnt) )
+               array_so=pack(field_s_dist(:,ifld,iC), field_s_dist(:,ifld,iC)/=-999.0)
+               ! calculate mean
+               field_mpas(iC,ifld) = sum(array_so(1:icnt)) / real(icnt) ! applied for both cloud mask and other physical quantities
+               ! calculate std 
+               if ( icnt .gt. 1 ) &
+                  field_mpas_std(iC,ifld) = sqrt( sum( ( array_so(1:icnt) - field_mpas(iC,ifld) )**2 ) / real(icnt-1) )
+               ! Specific treatment for the last index of field_mpas_std ! BJJ Tricky
+               if ( ifld .eq. nfield ) field_mpas_std(iC,ifld) = real(cnt_match(iC)) !NOTE: maximum # of obs, based on the grid pairing.
+               deallocate(array_so)
             end if
          end do !-- nC 
       end do !-- ifld
       call date_and_time(VALUES=tval)
       write (6, 777) 'Apply super-ob done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
-
-      deallocate(array_so)
 
    else ! nearest neighbor
 
@@ -346,7 +344,8 @@ program  main
       allocate(solzen(nC))
       call calc_solar_zenith_angle(nC, 1, lat_mpas(:), lon_mpas(:), scan_time, julianday, solzen(:), l_got_latlon(:))
       out_fname="mpas_iodav1.nc"
-      ! actual array for field_mpas=11, 10 for ch7-16, the last array 11 for 2D cloud fraction.
+      ! actual array for field_mpas=11, 10 for ch7-16, the last 11th array for 2D cloud fraction.
+      !                  field_mpas_std=11, 10 for ch7-16, the last 11th array for #of obs for SO
       call output_iodav1_o2m(trim(out_fname), scan_time, nC, 10, l_got_latlon(:), &
                              lat_mpas(:), lon_mpas(:), gzen(:), solzen(:), &
                              transpose(field_mpas), transpose(field_mpas_std) )  ! field_mpas(nC,nfield)

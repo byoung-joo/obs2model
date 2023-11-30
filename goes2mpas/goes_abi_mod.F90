@@ -1226,7 +1226,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    real(r_kind),       intent(in) :: sat_zen(nC)
    real(r_kind),       intent(in) :: sun_zen(nC)
    real(r_kind),       intent(in) :: bt(nband+1,nC) !BJJ 1:nband for bt, nband+1 for 2d cloud fraction
-   real(r_kind),       intent(in), optional :: bt_std(nband+1,nC) !BJJ 1:nband for bt, nband+1 for 2d cloud fraction, optional?
+   real(r_kind),       intent(in) :: bt_std(nband+1,nC) !BJJ 1:nband for bt, nband+1 for # of obs for SO
 
    integer(i_kind), parameter :: nstring = 50
    integer(i_kind), parameter :: ndatetime = 20
@@ -1336,7 +1336,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
       call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_FLOAT)
       ncname = trim(name_var_tb(i))//'@PreQC'
       call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_INT)
-      ncname = trim(name_var_tb(i))//'so_std@MetaData'
+      ncname = trim(name_var_tb(i))//'_so_std@MetaData'
       call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_FLOAT,'units','K')
    end do
    ncname = 'latitude@MetaData'
@@ -1363,6 +1363,8 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    call def_netcdf_var(ncfileid,ncname,(/ncid_nstring,ncid_nvars/),NF_CHAR)
    ncname = 'cloudAmount@MetaData'
    call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_FLOAT)
+   ncname = 'obsNumerForSO@MetaData'
+   call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_FLOAT)
    ncname = 'cellIndex@MetaData'
    call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_INT)
    call def_netcdf_end(ncfileid)
@@ -1374,7 +1376,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
       call put_netcdf_var(ncfileid,ncname,err_out(i,:))
       ncname = trim(name_var_tb(i))//'@PreQC'
       call put_netcdf_var(ncfileid,ncname,qf_out(i,:))
-      ncname = trim(name_var_tb(i))//'so_std@MetaData'
+      ncname = trim(name_var_tb(i))//'_so_std@MetaData'
       call put_netcdf_var(ncfileid,ncname,bt_std_out(i,:))
    end do
 
@@ -1402,6 +1404,8 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    call put_netcdf_var(ncfileid,ncname,name_var_tb(1:nband))
    ncname = 'cloudAmount@MetaData'
    call put_netcdf_var(ncfileid,ncname,bt_out(nband+1,:))
+   ncname = 'obsNumerForSO@MetaData'
+   call put_netcdf_var(ncfileid,ncname,bt_std_out(nband+1,:))
    ncname = 'cellIndex@MetaData'
    call put_netcdf_var(ncfileid,ncname,iC_out)
    call close_netcdf(trim(fname),ncfileid)
