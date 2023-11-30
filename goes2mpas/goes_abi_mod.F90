@@ -1213,7 +1213,7 @@ subroutine output_iodav1(fname, time_start, nx, ny, nband, got_latlon, lat, lon,
 
 end subroutine output_iodav1
 
-subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon, sat_zen, sun_zen, bt)
+subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon, sat_zen, sun_zen, bt, bt_std)
 
    implicit none
 
@@ -1226,6 +1226,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    real(r_kind),       intent(in) :: sat_zen(nC)
    real(r_kind),       intent(in) :: sun_zen(nC)
    real(r_kind),       intent(in) :: bt(nband+1,nC) !BJJ 1:nband for bt, nband+1 for 2d cloud fraction
+   real(r_kind),       intent(in), optional :: bt_std(nband+1,nC) !BJJ 1:nband for bt, nband+1 for 2d cloud fraction, optional?
 
    integer(i_kind), parameter :: nstring = 50
    integer(i_kind), parameter :: ndatetime = 20
@@ -1241,6 +1242,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    real(r_kind), allocatable :: sat_azi_out(:)
    real(r_kind), allocatable :: sun_azi_out(:)
    real(r_kind), allocatable :: bt_out(:,:)
+   real(r_kind), allocatable :: bt_std_out(:,:)
    real(r_kind), allocatable :: err_out(:,:)
    real(r_kind), allocatable :: qf_out(:,:)
    integer(i_kind), allocatable :: iC_out(:)  !BJJ for cellIndex@MetaData
@@ -1286,6 +1288,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    allocate (sun_zen_out(nlocs))
    allocate (sun_azi_out(nlocs))
    allocate (bt_out(nband+1,nlocs)) !BJJ nband+1 for 2d cf
+   allocate (bt_std_out(nband+1,nlocs)) !BJJ nband+1 for 2d cf
    allocate (err_out(nband,nlocs))
    allocate (qf_out(nband,nlocs))
    allocate (iC_out(nlocs))  !BJJ for cellIndex@MetaData
@@ -1310,6 +1313,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
       sat_zen_out(iloc) = sat_zen(iC)
       sun_zen_out(iloc) = sun_zen(iC)
       bt_out(1:nband+1,iloc) = bt(1:nband+1,iC) !BJJ nband+1 for 2d cf
+      bt_std_out(1:nband+1,iloc) = bt_std(1:nband+1,iC) !BJJ nband+1 for 2d cf
       qf_out(1:nband,iloc) = 0.0 ! BJJ what this can be for superob/nearest obs ?
       scan_pos_out(iloc) = 0.0   ! BJJ what this can be ?
       sat_azi_out(iloc) = missing_r
@@ -1332,6 +1336,8 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
       call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_FLOAT)
       ncname = trim(name_var_tb(i))//'@PreQC'
       call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_INT)
+      ncname = trim(name_var_tb(i))//'so_std@MetaData'
+      call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_FLOAT,'units','K')
    end do
    ncname = 'latitude@MetaData'
    call def_netcdf_var(ncfileid,ncname,(/ncid_nlocs/),NF_FLOAT)
@@ -1368,6 +1374,8 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
       call put_netcdf_var(ncfileid,ncname,err_out(i,:))
       ncname = trim(name_var_tb(i))//'@PreQC'
       call put_netcdf_var(ncfileid,ncname,qf_out(i,:))
+      ncname = trim(name_var_tb(i))//'so_std@MetaData'
+      call put_netcdf_var(ncfileid,ncname,bt_std_out(i,:))
    end do
 
    ncname = 'latitude@MetaData'
@@ -1408,6 +1416,7 @@ subroutine output_iodav1_o2m(fname, time_start, nC, nband, got_latlon, lat, lon,
    deallocate (sun_zen_out)
    deallocate (sun_azi_out)
    deallocate (bt_out)
+   deallocate (bt_std_out)
    deallocate (err_out)
    deallocate (qf_out)
    deallocate (iC_out)

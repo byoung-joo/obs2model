@@ -35,6 +35,7 @@ program  main
    real(sp), allocatable :: lon_mpas(:), lat_mpas(:)       ! to read. depend on the NetCDF file.
    real(dp), allocatable :: lon_mpas_dp(:), lat_mpas_dp(:) ! double precision for kd-tree
    real(sp), allocatable :: field_mpas(:,:)                ! interpolated field_s (nC,nfield)
+   real(sp), allocatable :: field_mpas_std(:,:)            ! For SO, std info     (nC,nfield)
 
    !kd-tree
    type(atlas_indexkdtree) :: kd
@@ -246,17 +247,30 @@ program  main
    if ( l_superob ) then
 
       allocate( array_so(max_pair) )
+      allocate( field_mpas_std(nC,nfield) )
 
       do ifld = 1, nfield
          do iC = 1, nC
             array_so(:) = field_s_dist(:,ifld,iC) ! temporary array for super_ob
+            if(iC.eq.nC/2) write(*,*) array_so
             ! if there is no matching pair or all patching values are missing
             if ( cnt_match(iC).eq.0 .or. all(array_so(:).eq.-999.0) ) then
                field_mpas(iC,ifld) = -999.0 ! specify a missing value
+               field_mpas_std(iC,ifld) = -999.0 ! specify a missing value
             else
                !for effective sum, replace the missing (-999.0) by (0.)
                array_so(:) = array_so(:) * merge(1.0,0.0,array_so(:).ne.-999.0)
                field_mpas(iC,ifld) = sum(array_so(:)) / cnt_match(iC) ! applied for both cloud mask and other physical quantities
+               ! calculate std of SO
+               if ( cnt_match(iC).gt.1 ) then
+                  !field_mpas_std(iC,ifld) = sqrt( sum(array_so(:)**2)/real(cnt_match(iC)-1) &
+                  !                             - real(cnt_match(iC))/real(cnt_match(iC)-1)*field_mpas(iC,ifld)**2 ) !BJJ: Is this good enough formula ?
+                  field_mpas_std(iC,ifld) = sqrt( sum( ( array_so(1:cnt_match(iC)) - field_mpas(iC,ifld) )**2 )  &
+                                                 / real(cnt_match(iC)) )
+               else
+                  field_mpas_std(iC,ifld) = -999.0 ! specify a missing value
+               end if 
+            if(iC.eq.nC/2) write(*,*) field_mpas(iC,ifld), field_mpas_std(iC,ifld), cnt_match(iC)
             end if
          end do !-- nC 
       end do !-- ifld
@@ -334,7 +348,8 @@ program  main
       out_fname="mpas_iodav1.nc"
       ! actual array for field_mpas=11, 10 for ch7-16, the last array 11 for 2D cloud fraction.
       call output_iodav1_o2m(trim(out_fname), scan_time, nC, 10, l_got_latlon(:), &
-                             lat_mpas(:), lon_mpas(:), gzen(:), solzen(:), transpose(field_mpas) )  ! field_mpas(nC,nfield)
+                             lat_mpas(:), lon_mpas(:), gzen(:), solzen(:), &
+                             transpose(field_mpas), transpose(field_mpas_std) )  ! field_mpas(nC,nfield)
 
       call date_and_time(VALUES=tval)
       write (6, 777) 'write_to_ioda done:',tval(1),'-',tval(2),'-',tval(3),tval(5),':',tval(6),':',tval(7)
@@ -348,6 +363,7 @@ program  main
 
    ! deallocate
    deallocate(field_mpas)
+   if( l_superob ) deallocate(field_mpas_std)
 
    !----- all done
    write(6,*) "END OF PROGRAM"
