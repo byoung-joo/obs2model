@@ -8,34 +8,33 @@
 #PBS -m abe
 #PBS -l select=1:ncpus=1
 
-setenv TMPDIR /glade/scratch/$USER/temp
+setenv TMPDIR /glade/derecho/scratch/$USER/temp
 mkdir -p $TMPDIR
 
 ### Load the module environment
-source /etc/profile.d/modules.csh
 module purge
-module unuse /glade/u/apps/ch/modulefiles/default/compilers
-setenv MODULEPATH_ROOT /glade/work/jedipara/cheyenne/spack-stack/modulefiles
-module use /glade/work/jedipara/cheyenne/spack-stack/modulefiles/compilers
-module use /glade/work/jedipara/cheyenne/spack-stack/modulefiles/misc
+##ignore that the sticky module ncarenv/... is not unloaded
+setenv LMOD_TMOD_FIND_FIRST yes
+module load ncarenv/23.09
+module use /glade/work/epicufsrt/contrib/spack-stack/derecho/modulefiles
 module load ecflow/5.8.4
-module load miniconda/3.9.12
+module load mysql/8.0.33
 
-limit stacksize unlimited
-module use /glade/work/jedipara/cheyenne/spack-stack/spack-stack-v1/envs/skylab-2.0.0-gnu-10.1.0/install/modulefiles/Core
-module load stack-gcc/10.1.0
-module load stack-openmpi/4.1.1
-module load stack-python/3.9.12
+module use /glade/work/epicufsrt/contrib/spack-stack/derecho/spack-stack-1.6.0/envs/unified-env/install/modulefiles/Core
+module load stack-gcc/12.2.0
+module load stack-cray-mpich/8.1.25
+module load stack-python/3.10.13
+
 #module available
-module load jedi-mpas-env/1.0.0
-module list
-setenv GFORTRAN_CONVERT_UNIT 'big_endian:101-200'
+module load jedi-fv3-env jedi-mpas-env soca-env
+
+ulimit -s unlimited
+export GFORTRAN_CONVERT_UNIT='big_endian:101-200'
+
 
 
 module load peak_memusage
 
-
-cd /glade/scratch/bjung/interp/obs2model_alt/test_abi_read
 
 peak_memusage.exe ./goes2mpas.x
 
